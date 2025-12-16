@@ -6,6 +6,7 @@ const ExpenseSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+
   amount: {
     type: Number,
     required: true,
