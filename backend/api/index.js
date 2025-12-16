@@ -37,7 +37,7 @@ app.use('/api/income', require('../routes/income'))
 app.use('/api/goal', require('../routes/goal'))
 app.use('/api/ai', require('../routes/ai'))
 // Test route.
-app.get('/', (req, res) => res.send('Backend running on Vercel 🚀')) 
+app.get('/', (req, res) => res.send('Backend running on Vercel')) 
 
 app.listen(8000)
 
