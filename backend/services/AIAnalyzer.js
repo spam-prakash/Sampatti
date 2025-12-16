@@ -9,10 +9,10 @@ class AIAnalyzer {
   async analyzeUserFinances (userId) {
     try {
       // Import models INSIDE the function to avoid circular dependencies
-      const Income = require('../123/Income')
-      const Expense = require('../123/Expense')
-      const Goal = require('../123/Goal')
-      const User = require('../123/User')
+      const Income = require('../models/Income')
+      const Expense = require('../models/Expense')
+      const Goal = require('../models/Goal')
+      const User = require('../models/User')
 
       // Get user data
       const user = await User.findById(userId)
@@ -67,7 +67,7 @@ class AIAnalyzer {
 
   async getSpendingInsights (userId) {
     try {
-      const Expense = require('../123/Expense')
+      const Expense = require('../models/Expense')
       const expenses = await Expense.find({ userId })
       return this.aiService.analyzeSpendingPatterns(expenses)
     } catch (error) {
@@ -81,10 +81,10 @@ class AIAnalyzer {
 
   async getFinancialHealth (userId) {
     try {
-      const User = require('../123/User')
-      const Income = require('../123/Income')
-      const Expense = require('../123/Expense')
-      const Goal = require('../123/Goal')
+      const User = require('../models/User')
+      const Income = require('../models/Income')
+      const Expense = require('../models/Expense')
+      const Goal = require('../models/Goal')
 
       const [user, incomes, expenses, goals] = await Promise.all([
         User.findById(userId),
