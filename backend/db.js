@@ -1,30 +1,37 @@
-require('dotenv').config()
 const mongoose = require('mongoose')
 
-const mongoURI = process.env.MONGOURI
-let cachedConnection = null
+// Global cache for serverless (IMPORTANT)
+let cached = global.mongoose
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null }
+}
 
 const connectToMongo = async () => {
-  if (cachedConnection) {
-    console.log('⚡ Using cached MongoDB connection')
-    return cachedConnection
+  if (cached.conn) {
+    return cached.conn
   }
 
-  try {
-    const db = await mongoose.connect(mongoURI, {
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(process.env.MONGOURI, {
       serverSelectionTimeoutMS: 30000,
       connectTimeoutMS: 30000,
       socketTimeoutMS: 45000,
       maxPoolSize: 5,
       minPoolSize: 1,
-      family: 4
+      family: 4,
+      bufferCommands: false
     })
+  }
 
-    cachedConnection = db
-    console.log('✅ Connected to MongoDB Successfully')
-    return db
+  try {
+    cached.conn = await cached.promise
+    console.log('✅ MongoDB connected (serverless)')
+    return cached.conn
   } catch (error) {
+    cached.promise = null
     console.error('❌ MongoDB connection error:', error)
+    throw error
   }
 }
 

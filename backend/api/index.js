@@ -1,12 +1,8 @@
 const express = require('express')
 const mongoose = require('mongoose')
-require('dotenv').config()
-
 const cors = require('cors')
 
-const connectToMongo = require('./db')
-
-const PORT = 8000
+const connectToMongo = require('../db')
 
 // prevent model overwrite on hot reload
 mongoose.models = {}
@@ -33,18 +29,14 @@ app.use(async (req, res, next) => {
 })
 
 // routes (DO NOT CHANGE PREFIXES)
-app.use('/api/auth', require('./routes/auth'))
-app.use('/api/expense', require('./routes/expense'))
-app.use('/api/income', require('./routes/income'))
-app.use('/api/goal', require('./routes/goal'))
-app.use('/api/ai', require('./routes/ai'))
+app.use('/api/auth', require('../routes/auth'))
+app.use('/api/expense', require('../routes/expense'))
+app.use('/api/income', require('../routes/income'))
+app.use('/api/goal', require('../routes/goal'))
+app.use('/api/ai', require('../routes/ai'))
 
 app.get('/', (req, res) => {
   res.send('Backend running on Vercel 🚀')
 })
 
-// start server
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
-})
 module.exports = app
