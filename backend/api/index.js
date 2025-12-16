@@ -39,7 +39,7 @@ app.use('/api/ai', require('../routes/ai'))
 // Test route.
 app.get('/', (req, res) => res.send('Backend running on Vercel 🚀')) 
 
-// app.listen(8000)
+app.listen(8000)
 
 // Export for Vercel
 module.exports = app
