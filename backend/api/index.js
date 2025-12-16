@@ -39,11 +39,11 @@ app.use(async (req, res, next) => {
 }) 
 
 // Routes
-app.use('/api/auth', require('../routes/auth')) 
-app.use('/api/expense', require('../routes/expense')) 
-app.use('/api/income', require('../routes/income')) 
-app.use('/api/goal', require('../routes/goal')) 
-app.use('/api/ai', require('../routes/ai')) 
+app.use('/auth', require('../routes/auth')) 
+app.use('/expense', require('../routes/expense')) 
+app.use('/income', require('../routes/income')) 
+app.use('/goal', require('../routes/goal')) 
+app.use('/ai', require('../routes/ai')) 
 
 // Test route
 app.get('/', (req, res) => res.send('Backend running on Vercel 🚀')) 
