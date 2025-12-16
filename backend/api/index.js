@@ -39,4 +39,5 @@ app.get('/', (req, res) => {
   res.send('Backend running on Vercel 🚀')
 })
 
-module.exports = app
+const serverless = require('vercel-http')
+module.exports = serverless(app)
