@@ -1,5 +1,5 @@
 const express = require('express')
-const User = require('../models/User')
+const User = require('../123/User')
 const router = express.Router()
 const { body, validationResult } = require('express-validator')
 const bcrypt = require('bcryptjs')
