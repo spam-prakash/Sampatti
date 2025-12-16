@@ -3,9 +3,9 @@ const express = require('express')
 const router = express.Router()
 const fetchuser = require('../middleware/fetchuser')
 const FinancialAIService = require('../services/FinancialAIService')
-const Income = require('../123/Income')
-const Expense = require('../123/Expense')
-const Goal = require('../123/Goal')
+const Income = require('../models/Income')
+const Expense = require('../models/Expense')
+const Goal = require('../models/Goal')
 
 // Initialize AI Service
 const aiService = new FinancialAIService()
