@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Pie } from 'react-chartjs-2'
+import { Pie, Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -24,14 +24,19 @@ import {
   FaExclamationTriangle,
   FaCheckCircle,
   FaLightbulb,
-  FaBrain
+  FaBrain,
+  FaCalendarAlt,
+  FaTag,
+  FaSortAmountDown,
+  FaEdit,
+  FaTrash
 } from 'react-icons/fa'
 import Header from '../components/dashboard/Header'
 import Sidebar from '../components/dashboard/Sidebar'
 import AIInsightsCard from '../components/dashboard/AIInsightsCard'
 import Loader from '../components/common/Loader'
 import api from '../services/api'
-import { formatCurrency, formatDate } from '../utils/helpers'
+import { formatCurrency, formatDate, formatDateToYYYYMMDD } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
 ChartJS.register(
@@ -54,10 +59,20 @@ const DashboardPage = () => {
   const [goals, setGoals] = useState([])
   const [incomePieData, setIncomePieData] = useState(null)
   const [expensePieData, setExpensePieData] = useState(null)
+  const [balanceData, setBalanceData] = useState(null)
   const [totalIncome, setTotalIncome] = useState(0)
   const [totalExpense, setTotalExpense] = useState(0)
   const [financialHealth, setFinancialHealth] = useState(75)
   const [aiAnalysis, setAiAnalysis] = useState(null)
+
+  const [transactionsSortBy, setTransactionsSortBy] = useState('date')
+  const [transactionsSortOrder, setTransactionsSortOrder] = useState('desc')
+  const [transactionsPagination, setTransactionsPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    totalCount: 0,
+    pageSize: 10
+  })
 
   const INCOME_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
   const EXPENSE_COLORS = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#0ea5e9', '#3b82f6']
@@ -67,17 +82,21 @@ const DashboardPage = () => {
   }, [])
 
   useEffect(() => {
-    generateCharts()
-  }, [incomes, expenses])
+    if (incomes.length > 0 || expenses.length > 0) {
+      generateCharts()
+      updateTransactionsPagination()
+    }
+  }, [incomes, expenses, transactionsSortBy, transactionsSortOrder])
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
+
       const [incomeRes, expenseRes, goalRes, aiRes] = await Promise.all([
-        api.get('/income/all'),
-        api.get('/expense/all'),
+        api.get('/income/all', { params: { limit: 1000 } }),
+        api.get('/expense/all', { params: { limit: 1000 } }),
         api.get('/goal/all'),
-        api.get('/ai/analysis')
+        api.get('/ai/analysis').catch(() => ({ success: false }))
       ])
 
       if (incomeRes.success) {
@@ -98,24 +117,28 @@ const DashboardPage = () => {
         setGoals(goalRes.data || [])
       }
 
-      if (aiRes) {
-        setAiAnalysis(aiRes)
-        if (aiRes.summary?.financialHealth?.score) {
+      if (aiRes?.success) {
+        setAiAnalysis(aiRes.data || aiRes)
+        if (aiRes.data?.summary?.financialHealth?.score) {
+          setFinancialHealth(aiRes.data.summary.financialHealth.score)
+        } else if (aiRes.summary?.financialHealth?.score) {
           setFinancialHealth(aiRes.summary.financialHealth.score)
         }
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
+      toast.error('Failed to load dashboard data')
     } finally {
       setLoading(false)
     }
   }
 
   const generateCharts = () => {
-    // Income Pie Chart
     const incomeCategoryTotals = {}
     incomes.forEach((inc) => {
-      incomeCategoryTotals[inc.category] = (incomeCategoryTotals[inc.category] || 0) + inc.amount
+      if (inc.category) {
+        incomeCategoryTotals[inc.category] = (incomeCategoryTotals[inc.category] || 0) + inc.amount
+      }
     })
 
     if (Object.keys(incomeCategoryTotals).length > 0) {
@@ -130,12 +153,15 @@ const DashboardPage = () => {
           }
         ]
       })
+    } else {
+      setIncomePieData(null)
     }
 
-    // Expense Pie Chart
     const expenseCategoryTotals = {}
     expenses.forEach((exp) => {
-      expenseCategoryTotals[exp.category] = (expenseCategoryTotals[exp.category] || 0) + exp.amount
+      if (exp.category) {
+        expenseCategoryTotals[exp.category] = (expenseCategoryTotals[exp.category] || 0) + exp.amount
+      }
     })
 
     if (Object.keys(expenseCategoryTotals).length > 0) {
@@ -150,6 +176,183 @@ const DashboardPage = () => {
           }
         ]
       })
+    } else {
+      setExpensePieData(null)
+    }
+
+    try {
+      const allTransactions = [
+        ...incomes.map(inc => ({
+          type: 'income',
+          date: new Date(inc.creditedOn || inc.date),
+          amount: inc.amount,
+          originalDate: inc.creditedOn || inc.date
+        })),
+        ...expenses.map(exp => ({
+          type: 'expense',
+          date: new Date(exp.date || exp.creditedOn),
+          amount: -exp.amount,
+          originalDate: exp.date || exp.creditedOn
+        }))
+      ].sort((a, b) => a.date - b.date)
+
+      if (allTransactions.length === 0) {
+        setBalanceData(null)
+        return
+      }
+
+      const now = new Date()
+      const thirtyDaysAgo = new Date(now)
+      thirtyDaysAgo.setDate(now.getDate() - 30)
+      thirtyDaysAgo.setHours(0, 0, 0, 0)
+      const startOfToday = new Date(now)
+      startOfToday.setHours(0, 0, 0, 0)
+
+      const recentTransactions = allTransactions.filter(t => {
+        t.date.setHours(0, 0, 0, 0)
+        return t.date >= thirtyDaysAgo && t.date <= startOfToday
+      })
+
+      const groupedByDate = {}
+      recentTransactions.forEach(trans => {
+        const isoKey = formatDateToYYYYMMDD(trans.date)
+        groupedByDate[isoKey] = (groupedByDate[isoKey] || 0) + trans.amount
+      })
+
+      const labels = []
+      const cumulativeValues = []
+      let runningBalance = 0
+
+      const currentDate = new Date(thirtyDaysAgo)
+      while (currentDate <= startOfToday) {
+        const iso = formatDateToYYYYMMDD(new Date(currentDate))
+        const month = currentDate.toLocaleDateString('en-US', { month: 'short' })
+        const day = currentDate.getDate()
+        labels.push(`${month} ${day}`)
+
+        runningBalance += groupedByDate[iso] || 0
+        cumulativeValues.push(runningBalance)
+        currentDate.setDate(currentDate.getDate() + 1)
+      }
+
+      setBalanceData({
+        labels,
+        datasets: [{
+          label: 'Balance (Cumulative)',
+          data: cumulativeValues,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.08)',
+          cubicInterpolationMode: 'monotone',
+          tension: 0.3,
+          fill: true,
+          pointBackgroundColor: '#10b981',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      })
+    } catch (err) {
+      console.error('Balance chart error:', err)
+      setBalanceData(null)
+    }
+  }
+
+  const updateTransactionsPagination = () => {
+    const allTransactions = [
+      ...incomes,
+      ...expenses
+    ]
+
+    const totalCount = allTransactions.length
+    const totalPages = Math.ceil(totalCount / transactionsPagination.pageSize)
+
+    setTransactionsPagination(prev => ({
+      ...prev,
+      totalPages,
+      totalCount
+    }))
+  }
+
+  const getPaginatedTransactions = () => {
+    const allTransactions = [
+      ...incomes.map(inc => ({
+        ...inc,
+        type: 'income',
+        displayDate: inc.creditedOn || inc.date,
+        description: inc.desc || inc.description || '-',
+        category: inc.category || 'Uncategorized',
+        _id: inc._id
+      })),
+      ...expenses.map(exp => ({
+        ...exp,
+        type: 'expense',
+        displayDate: exp.date || exp.creditedOn,
+        description: exp.description || exp.desc || '-',
+        category: exp.category || 'Uncategorized',
+        _id: exp._id
+      }))
+    ]
+
+    const sorted = allTransactions.sort((a, b) => {
+      let aValue, bValue
+
+      switch (transactionsSortBy) {
+        case 'amount':
+          aValue = a.amount
+          bValue = b.amount
+          break
+        case 'category':
+          aValue = a.category
+          bValue = b.category
+          break
+        case 'date':
+        default:
+          aValue = new Date(a.displayDate)
+          bValue = new Date(b.displayDate)
+      }
+
+      if (aValue < bValue) return transactionsSortOrder === 'asc' ? -1 : 1
+      if (aValue > bValue) return transactionsSortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+
+    const startIndex = (transactionsPagination.page - 1) * transactionsPagination.pageSize
+    const endIndex = startIndex + transactionsPagination.pageSize
+
+    return sorted.slice(startIndex, endIndex)
+  }
+
+  const handleTransactionsSort = (field) => {
+    if (transactionsSortBy === field) {
+      setTransactionsSortOrder(transactionsSortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setTransactionsSortBy(field)
+      setTransactionsSortOrder('desc')
+    }
+  }
+
+  const handleTransactionsPageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= transactionsPagination.totalPages) {
+      setTransactionsPagination(prev => ({ ...prev, page: newPage }))
+    }
+  }
+
+  const handleDeleteTransaction = async (type, id) => {
+    if (!window.confirm('Are you sure you want to delete this transaction?')) {
+      return
+    }
+
+    try {
+      const endpoint = type === 'income' ? `/income/delete/${id}` : `/expense/delete/${id}`
+      const response = await api.delete(endpoint)
+
+      if (response.success) {
+        toast.success('Transaction deleted successfully!')
+        fetchDashboardData()
+      }
+    } catch (error) {
+      toast.error('Failed to delete transaction')
     }
   }
 
@@ -163,13 +366,21 @@ const DashboardPage = () => {
     const currentYear = now.getFullYear()
 
     const monthlyIncomes = incomes.filter((inc) => {
-      const incDate = new Date(inc.creditedOn)
-      return incDate.getMonth() === currentMonth && incDate.getFullYear() === currentYear
+      try {
+        const incDate = new Date(inc.creditedOn || inc.date)
+        return incDate.getMonth() === currentMonth && incDate.getFullYear() === currentYear
+      } catch (e) {
+        return false
+      }
     })
 
     const monthlyExpenses = expenses.filter((exp) => {
-      const expDate = new Date(exp.date)
-      return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear
+      try {
+        const expDate = new Date(exp.date || exp.creditedOn)
+        return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear
+      } catch (e) {
+        return false
+      }
     })
 
     return {
@@ -179,6 +390,7 @@ const DashboardPage = () => {
   }
 
   const monthlyStats = getMonthlyStats()
+  const paginatedTransactions = getPaginatedTransactions()
 
   if (loading) {
     return (
@@ -191,10 +403,8 @@ const DashboardPage = () => {
   return (
     <div className='min-h-screen bg-gray-50'>
       <Sidebar />
-
       <div className='md:pl-64 flex flex-col'>
         <Header />
-
         <main className='flex-1 p-6'>
           <div className='max-w-7xl mx-auto'>
             {/* Main Balance Card */}
@@ -276,9 +486,8 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* Charts and Action Buttons */}
+            {/* Charts */}
             <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8'>
-              {/* Income Distribution */}
               <div className='card'>
                 <div className='flex items-center justify-between mb-4'>
                   <h3 className='text-lg font-semibold text-gray-900'>Income Sources</h3>
@@ -316,7 +525,6 @@ const DashboardPage = () => {
                     )}
               </div>
 
-              {/* Expense Distribution */}
               <div className='card'>
                 <div className='flex items-center justify-between mb-4'>
                   <h3 className='text-lg font-semibold text-gray-900'>Expense Breakdown</h3>
@@ -355,256 +563,120 @@ const DashboardPage = () => {
               </div>
             </div>
 
+            {/* Balance Timeline */}
+            <div className='card mb-8'>
+              <div className='flex items-center justify-between mb-4'>
+                <h3 className='text-lg font-semibold text-gray-900'>Balance Timeline</h3>
+                <button
+                  onClick={() => {
+                    fetchDashboardData()
+                    toast.success('Dashboard refreshed')
+                  }}
+                  className='text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium'
+                >
+                  Refresh
+                </button>
+              </div>
+              {balanceData && balanceData.labels && balanceData.labels.length > 0
+                ? (
+                  <div className='relative h-80'>
+                    <Line
+                      data={balanceData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true } },
+                        scales: { y: { beginAtZero: false, ticks: { callback: (val) => formatCurrency(val, user?.currency) } } }
+                      }}
+                    />
+                  </div>
+                  )
+                : (
+                  <p className='text-gray-500 text-center py-8'>No balance data</p>
+                  )}
+            </div>
+
             {/* AI Insights */}
             <AIInsightsCard insights={null} healthScore={financialHealth} />
 
-            {/* AI Analysis Section */}
-            {aiAnalysis && (
-              <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8'>
-                {/* Financial Health Score */}
-                <div className='card bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200'>
-                  <div className='flex items-center justify-between mb-4'>
-                    <h3 className='text-lg font-semibold text-gray-900 flex items-center gap-2'>
-                      <FaBrain className='text-indigo-600' />
-                      Financial Health Score
-                    </h3>
-                  </div>
-                  <div className='flex items-center gap-6'>
-                    <div className='relative w-32 h-32'>
-                      <div className='absolute inset-0 flex items-center justify-center'>
-                        <div className='text-center'>
-                          <div className='text-4xl font-bold text-indigo-600'>
-                            {aiAnalysis.summary?.financialHealth?.score || 0}
-                          </div>
-                          <div className='text-xs text-gray-600 font-medium'>
-                            {aiAnalysis.summary?.financialHealth?.rating || 'Fair'}
-                          </div>
-                        </div>
-                      </div>
-                      <svg className='w-32 h-32 transform -rotate-90'>
-                        <circle cx='64' cy='64' r='56' fill='none' stroke='#e0e7ff' strokeWidth='8' />
-                        <circle
-                          cx='64'
-                          cy='64'
-                          r='56'
-                          fill='none'
-                          stroke='#4f46e5'
-                          strokeWidth='8'
-                          strokeDasharray={`${(aiAnalysis.summary?.financialHealth?.score || 0) * 3.5} 350`}
-                          strokeLinecap='round'
-                        />
-                      </svg>
-                    </div>
-                    <div className='flex-1 space-y-3'>
-                      <div>
-                        <p className='text-sm text-gray-600'>Savings Rate</p>
-                        <p className='text-lg font-semibold text-gray-900'>
-                          {aiAnalysis.summary?.financialHealth?.breakdown?.savingsRate || '0%'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className='text-sm text-gray-600'>Monthly Income</p>
-                        <p className='text-lg font-semibold text-green-600'>
-                          {formatCurrency(aiAnalysis.summary?.monthlyIncome || 0, user?.currency)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className='text-sm text-gray-600'>Monthly Expense</p>
-                        <p className='text-lg font-semibold text-red-600'>
-                          {formatCurrency(aiAnalysis.summary?.monthlyExpense || 0, user?.currency)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Spending Insights */}
-                <div className='card'>
-                  <h3 className='text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2'>
-                    <FaLightbulb className='text-yellow-500' />
-                    Spending Insights
-                  </h3>
-                  {aiAnalysis.analysis?.spending && (
-                    <div className='space-y-4'>
-                      {aiAnalysis.analysis.spending.categoryBreakdown?.length > 0 && (
-                        <div>
-                          <p className='text-sm font-medium text-gray-700 mb-2'>Top Spending Categories</p>
-                          {aiAnalysis.analysis.spending.categoryBreakdown.slice(0, 3).map((cat, idx) => (
-                            <div key={idx} className='flex items-center justify-between py-2 border-b border-gray-100 last:border-0'>
-                              <div>
-                                <p className='text-sm font-medium text-gray-900'>{cat.category}</p>
-                                <p className='text-xs text-gray-500'>{cat.percentage}% of total</p>
-                              </div>
-                              <p className='font-semibold text-gray-900'>
-                                {formatCurrency(cat.amount, user?.currency)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {aiAnalysis.analysis.spending.insights?.length > 0 && (
-                        <div className='bg-yellow-50 p-3 rounded-lg border border-yellow-200 mt-3'>
-                          <p className='text-sm text-yellow-800'>
-                            {aiAnalysis.analysis.spending.insights[0]}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Alerts & Recommendations */}
-                <div className='card'>
-                  <h3 className='text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2'>
-                    <FaExclamationTriangle className='text-orange-500' />
-                    Alerts
-                  </h3>
-                  {aiAnalysis.alerts?.length > 0
-                    ? (
-                      <div className='space-y-3'>
-                        {aiAnalysis.alerts.map((alert, idx) => (
-                          <div
-                            key={idx}
-                            className={`p-3 rounded-lg border flex gap-3 ${
-                            alert.type === 'warning'
-                              ? 'bg-orange-50 border-orange-200'
-                              : 'bg-red-50 border-red-200'
-                          }`}
-                          >
-                            <FaExclamationTriangle
-                              className={alert.type === 'warning' ? 'text-orange-600 mt-0.5' : 'text-red-600 mt-0.5'}
-                            />
-                            <p className={alert.type === 'warning' ? 'text-orange-800 text-sm' : 'text-red-800 text-sm'}>
-                              {alert.message}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                      )
-                    : (
-                      <p className='text-gray-500 text-sm'>No alerts at the moment</p>
-                      )}
-                </div>
-
-                {/* Recommendations */}
-                <div className='card'>
-                  <h3 className='text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2'>
-                    <FaCheckCircle className='text-green-600' />
-                    Immediate Actions
-                  </h3>
-                  {aiAnalysis.recommendations?.immediate?.length > 0
-                    ? (
-                      <ul className='space-y-2'>
-                        {aiAnalysis.recommendations.immediate.slice(0, 3).map((rec, idx) => (
-                          <li key={idx} className='flex items-start gap-2 text-sm'>
-                            <span className='text-green-600 font-bold mt-0.5'>•</span>
-                            <span className='text-gray-700'>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      )
-                    : (
-                      <p className='text-gray-500 text-sm'>No recommendations</p>
-                      )}
-                </div>
-
-                {/* Goals Status */}
-                <div className='card lg:col-span-2'>
-                  <h3 className='text-lg font-semibold text-gray-900 mb-4'>Goals Status</h3>
-                  {aiAnalysis.analysis?.goals?.goals?.length > 0
-                    ? (
-                      <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                        {aiAnalysis.analysis.goals.goals.map((goal, idx) => (
-                          <div
-                            key={idx}
-                            className={`p-4 rounded-lg border ${
-                            goal.status === 'completed'
-                              ? 'bg-green-50 border-green-200'
-                              : 'bg-yellow-50 border-yellow-200'
-                          }`}
-                          >
-                            <div className='flex items-center gap-2 mb-2'>
-                              {goal.status === 'completed'
-                                ? (
-                                  <FaCheckCircle className='text-green-600' />
-                                  )
-                                : (
-                                  <FaExclamationTriangle className='text-yellow-600' />
-                                  )}
-                              <h4 className='font-semibold text-gray-900 flex-1'>{goal.title}</h4>
-                            </div>
-                            <div className='mb-2'>
-                              <div className='flex justify-between text-xs mb-1'>
-                                <span className='text-gray-600'>Progress</span>
-                                <span className='font-semibold'>{goal.progress}%</span>
-                              </div>
-                              <div className='w-full bg-gray-200 rounded-full h-2'>
-                                <div
-                                  className={`h-2 rounded-full ${
-                                  goal.status === 'completed' ? 'bg-green-600' : 'bg-yellow-600'
-                                }`}
-                                  style={{ width: `${goal.progress}%` }}
-                                />
-                              </div>
-                            </div>
-                            <p className='text-xs text-gray-600 italic'>{goal.suggestion}</p>
-                          </div>
-                        ))}
-                      </div>
-                      )
-                    : (
-                      <p className='text-gray-500 text-center py-4'>No goals yet</p>
-                      )}
-                </div>
-              </div>
-            )}
-
             {/* Recent Transactions Section */}
             <div className='card'>
-              <h3 className='text-lg font-semibold text-gray-900 mb-4'>Recent Transactions</h3>
-              {incomes.length > 0 || expenses.length > 0
+              <div className='flex justify-between items-center mb-4'>
+                <h3 className='text-lg font-semibold text-gray-900'>Recent Transactions</h3>
+                <div className='text-sm text-gray-600'>
+                  Showing {paginatedTransactions.length} of {transactionsPagination.totalCount} transactions
+                </div>
+              </div>
+
+              {paginatedTransactions.length > 0
                 ? (
-                  <div className='overflow-x-auto'>
-                    <table className='w-full'>
-                      <thead>
-                        <tr className='border-b border-gray-200'>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
-                            Type
-                          </th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
-                            Category
-                          </th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
-                            Description
-                          </th>
-                          <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>
-                            Amount
-                          </th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
-                            Date
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ...incomes.map((inc) => ({
-                            ...inc,
-                            type: 'income',
-                            displayDate: inc.creditedOn
-                          })),
-                          ...expenses.map((exp) => ({
-                            ...exp,
-                            type: 'expense',
-                            displayDate: exp.date
-                          }))
-                        ]
-                          .sort((a, b) => new Date(b.displayDate) - new Date(a.displayDate))
-                          .slice(0, 8)
-                          .map((trans) => (
+                  <>
+                    <div className='overflow-x-auto'>
+                      <table className='w-full'>
+                        <thead>
+                          <tr className='border-b border-gray-200'>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              <button
+                                onClick={() => handleTransactionsSort('date')}
+                                className='flex items-center gap-1 hover:text-blue-600'
+                              >
+                                <FaCalendarAlt className='w-4 h-4' />
+                                Date
+                                {transactionsSortBy === 'date' && (
+                                  <span>{transactionsSortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              <button
+                                onClick={() => handleTransactionsSort('category')}
+                                className='flex items-center gap-1 hover:text-blue-600'
+                              >
+                                <FaTag className='w-4 h-4' />
+                                Category
+                                {transactionsSortBy === 'category' && (
+                                  <span>{transactionsSortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Description
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Type
+                            </th>
+                            <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>
+                              <button
+                                onClick={() => handleTransactionsSort('amount')}
+                                className='flex items-center gap-1 hover:text-blue-600 justify-end'
+                              >
+                                <FaSortAmountDown className='w-4 h-4' />
+                                Amount
+                                {transactionsSortBy === 'amount' && (
+                                  <span>{transactionsSortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedTransactions.map((trans) => (
                             <tr
                               key={`${trans.type}-${trans._id}`}
                               className='border-b border-gray-100 hover:bg-gray-50 transition'
                             >
+                              <td className='py-3 px-4 text-sm text-gray-600'>
+                                {formatDate(trans.displayDate)}
+                              </td>
+                              <td className='py-3 px-4 text-sm text-gray-600'>
+                                {trans.category}
+                              </td>
+                              <td className='py-3 px-4 text-sm text-gray-600'>
+                                {trans.description}
+                              </td>
                               <td className='py-3 px-4'>
                                 <span
                                   className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -616,12 +688,6 @@ const DashboardPage = () => {
                                   {trans.type === 'income' ? 'Income' : 'Expense'}
                                 </span>
                               </td>
-                              <td className='py-3 px-4 text-sm text-gray-600'>
-                                {trans.category}
-                              </td>
-                              <td className='py-3 px-4 text-sm text-gray-600'>
-                                {trans.desc || trans.description || '-'}
-                              </td>
                               <td
                                 className={`py-3 px-4 text-sm font-semibold text-right ${
                                 trans.type === 'income' ? 'text-green-600' : 'text-red-600'
@@ -630,19 +696,82 @@ const DashboardPage = () => {
                                 {trans.type === 'income' ? '+' : '-'}
                                 {formatCurrency(trans.amount, user?.currency)}
                               </td>
-                              <td className='py-3 px-4 text-sm text-gray-600'>
-                                {formatDate(trans.displayDate)}
+                              <td className='py-3 px-4 text-sm text-right space-x-2'>
+                                <div className='flex justify-end gap-2'>
+                                  <button
+                                    onClick={() => navigate(trans.type === 'income' ? '/income' : '/expense')}
+                                    className='text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1'
+                                  >
+                                    <FaEdit className='w-3 h-3' /> Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteTransaction(trans.type, trans._id)}
+                                    className='text-red-600 hover:text-red-800 text-xs font-medium flex items-center gap-1'
+                                  >
+                                    <FaTrash className='w-3 h-3' /> Delete
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {transactionsPagination.totalPages > 1 && (
+                      <div className='flex justify-between items-center mt-6 pt-6 border-t border-gray-200'>
+                        <div className='text-sm text-gray-600'>
+                          Page {transactionsPagination.page} of {transactionsPagination.totalPages}
+                        </div>
+                        <div className='flex gap-2'>
+                          <button
+                            onClick={() => handleTransactionsPageChange(transactionsPagination.page - 1)}
+                            disabled={transactionsPagination.page <= 1}
+                            className={`px-3 py-1 rounded text-sm ${
+                              transactionsPagination.page <= 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            Previous
+                          </button>
+                          <button
+                            onClick={() => handleTransactionsPageChange(transactionsPagination.page + 1)}
+                            disabled={transactionsPagination.page >= transactionsPagination.totalPages}
+                            className={`px-3 py-1 rounded text-sm ${
+                              transactionsPagination.page >= transactionsPagination.totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                   )
                 : (
-                  <p className='text-gray-500 text-center py-8'>
-                    No transactions yet. Start by adding income or expenses!
-                  </p>
+                  <div className='text-center py-10'>
+                    <FaMoneyBillWave className='w-16 h-16 text-gray-300 mx-auto mb-4' />
+                    <p className='text-gray-500 text-lg'>No transactions found</p>
+                    <p className='text-gray-400 text-sm mt-2'>Start by adding income or expense records</p>
+                    <div className='flex gap-4 justify-center mt-4'>
+                      <button
+                        onClick={() => navigate('/income')}
+                        className='btn-primary'
+                      >
+                        Add Income
+                      </button>
+                      <button
+                        onClick={() => navigate('/expense')}
+                        className='btn-secondary'
+                      >
+                        Add Expense
+                      </button>
+                    </div>
+                  </div>
                   )}
             </div>
           </div>

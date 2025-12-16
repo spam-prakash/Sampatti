@@ -28,11 +28,11 @@ import {
   FaEdit,
   FaTrash,
   FaBrain,
-  // FaArrowTrendUp,
   FaLightbulb,
   FaExclamationTriangle,
   FaTimes,
-  FaListUl
+  FaListUl,
+  FaSortAmountDown
 } from 'react-icons/fa'
 import Header from '../components/dashboard/Header'
 import Sidebar from '../components/dashboard/Sidebar'
@@ -64,13 +64,21 @@ const IncomePage = () => {
   const [sources, setSources] = useState([])
   const [recurringAnalysis, setRecurringAnalysis] = useState(null)
   const [aiInsights, setAiInsights] = useState(null)
-
-  // Chart data states
   const [categoryData, setCategoryData] = useState(null)
   const [timelineData, setTimelineData] = useState(null)
   const [monthlyTrendData, setMonthlyTrendData] = useState(null)
-
   const [totalIncome, setTotalIncome] = useState(0)
+
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    totalCount: 0,
+    pageSize: 10
+  })
+  const [sortBy, setSortBy] = useState('date')
+  const [sortOrder, setSortOrder] = useState('desc')
+
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showAiInsights, setShowAiInsights] = useState(false)
@@ -81,7 +89,6 @@ const IncomePage = () => {
   const [selectedSource, setSelectedSource] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
 
-  // Single income form data
   const [formData, setFormData] = useState({
     amount: '',
     category: 'Salary',
@@ -94,7 +101,6 @@ const IncomePage = () => {
     tags: ''
   })
 
-  // Bulk income form data - always starts with 1 row
   const [bulkFormData, setBulkFormData] = useState([{
     amount: '',
     category: 'Salary',
@@ -119,7 +125,6 @@ const IncomePage = () => {
   const INCOME_CATEGORIES = ['Salary', 'Freelance', 'Business', 'Investment', 'Rental', 'Bonus', 'Gift', 'Other']
   const RECURRENCE_TYPES = ['Daily', 'Weekly', 'Monthly', 'Yearly']
   const STATUS_TYPES = ['Pending', 'Received', 'Cancelled']
-
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6']
 
   useEffect(() => {
@@ -129,16 +134,13 @@ const IncomePage = () => {
   useEffect(() => {
     filterIncome()
     generateCharts()
-  }, [incomes, filter, selectedCategory, selectedSource, selectedStatus])
+    updatePagination()
+  }, [incomes, filter, selectedCategory, selectedSource, selectedStatus, sortBy, sortOrder])
 
   const fetchAllData = async () => {
     try {
       setLoading(true)
-
-      // Fetch all incomes
-      const incomeResponse = await api.get('/income/all', {
-        params: { limit: 1000 }
-      })
+      const incomeResponse = await api.get('/income/all', { params: { limit: 1000 } })
 
       if (incomeResponse.success) {
         setIncomes(incomeResponse.data || [])
@@ -146,7 +148,6 @@ const IncomePage = () => {
         toast.error(incomeResponse.message || 'Failed to fetch income data')
       }
 
-      // Fetch statistics
       try {
         const statsResponse = await api.get('/income/stats')
         if (statsResponse.success) {
@@ -156,7 +157,6 @@ const IncomePage = () => {
         console.log('Stats fetch error:', statsError.message)
       }
 
-      // Fetch categories
       try {
         const categoriesResponse = await api.get('/income/categories')
         if (categoriesResponse.success) {
@@ -179,7 +179,6 @@ const IncomePage = () => {
         setCategories(defaultCategories)
       }
 
-      // Fetch sources
       try {
         const sourcesResponse = await api.get('/income/sources')
         if (sourcesResponse.success) {
@@ -196,7 +195,6 @@ const IncomePage = () => {
         setSources([])
       }
 
-      // Fetch recurring analysis
       try {
         const recurringResponse = await api.get('/income/recurring-analysis')
         if (recurringResponse.success) {
@@ -213,26 +211,9 @@ const IncomePage = () => {
     }
   }
 
-  const fetchAiInsights = async () => {
-    try {
-      const response = await api.get('/income/ai-insights')
-      if (response.success) {
-        setAiInsights(response.data)
-        setShowAiInsights(true)
-      }
-    } catch (error) {
-      if (error.response?.status === 503) {
-        toast.error('AI Service is currently unavailable')
-      } else {
-        toast.error('Failed to fetch AI insights')
-      }
-    }
-  }
-
   const filterIncome = () => {
     let filtered = incomes
 
-    // Apply period filter
     if (filter !== 'all') {
       const now = new Date()
       filtered = filtered.filter((inc) => {
@@ -256,17 +237,14 @@ const IncomePage = () => {
       })
     }
 
-    // Apply category filter
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(inc => inc.category === selectedCategory)
     }
 
-    // Apply source filter
     if (selectedSource !== 'all') {
       filtered = filtered.filter(inc => inc.source === selectedSource)
     }
 
-    // Apply status filter
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(inc => inc.status === selectedStatus)
     }
@@ -276,8 +254,68 @@ const IncomePage = () => {
     setTotalIncome(total)
   }
 
+  const updatePagination = () => {
+    const totalCount = filteredIncomes.length
+    const totalPages = Math.ceil(totalCount / pagination.pageSize)
+
+    setPagination(prev => ({
+      ...prev,
+      totalPages,
+      totalCount,
+      page: prev.page > totalPages ? 1 : prev.page
+    }))
+  }
+
+  const getPaginatedIncomes = () => {
+    const sorted = [...filteredIncomes].sort((a, b) => {
+      let aValue, bValue
+
+      switch (sortBy) {
+        case 'amount':
+          aValue = a.amount
+          bValue = b.amount
+          break
+        case 'category':
+          aValue = a.category
+          bValue = b.category
+          break
+        case 'source':
+          aValue = a.source || ''
+          bValue = b.source || ''
+          break
+        case 'date':
+        default:
+          aValue = new Date(a.creditedOn)
+          bValue = new Date(b.creditedOn)
+      }
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+
+    const startIndex = (pagination.page - 1) * pagination.pageSize
+    const endIndex = startIndex + pagination.pageSize
+
+    return sorted.slice(startIndex, endIndex)
+  }
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(field)
+      setSortOrder('desc')
+    }
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      setPagination(prev => ({ ...prev, page: newPage }))
+    }
+  }
+
   const generateCharts = () => {
-    // Category Pie Chart
     const categoryTotals = {}
     filteredIncomes.forEach((inc) => {
       categoryTotals[inc.category] = (categoryTotals[inc.category] || 0) + inc.amount
@@ -295,7 +333,6 @@ const IncomePage = () => {
 
     setCategoryData(pieData)
 
-    // Timeline Line Chart
     const sortedIncomes = [...filteredIncomes].sort(
       (a, b) => new Date(a.creditedOn) - new Date(b.creditedOn)
     )
@@ -327,7 +364,6 @@ const IncomePage = () => {
 
     setTimelineData(lineData)
 
-    // Monthly Trend Bar Chart (if stats available)
     if (stats?.monthlyTrend) {
       const trend = stats.monthlyTrend
       const groupedByMonth = {}
@@ -362,7 +398,6 @@ const IncomePage = () => {
 
   const handleAddIncome = async (e) => {
     e.preventDefault()
-
     if (!formData.amount || !formData.category) {
       toast.error('Please fill in all required fields')
       return
@@ -382,7 +417,6 @@ const IncomePage = () => {
       }
 
       const response = await api.post('/income/add', payload)
-
       if (response.success) {
         toast.success('Income added successfully!')
         setFormData({
@@ -416,7 +450,6 @@ const IncomePage = () => {
       return
     }
 
-    // If only one valid income, use the regular add endpoint
     if (validIncomes.length === 1) {
       const singleIncome = validIncomes[0]
       try {
@@ -453,7 +486,6 @@ const IncomePage = () => {
       return
     }
 
-    // Multiple incomes, use bulk-add endpoint
     try {
       const response = await api.post('/income/bulk-add', {
         incomes: validIncomes.map(item => ({
@@ -488,7 +520,6 @@ const IncomePage = () => {
 
   const handleEditIncome = async (e) => {
     e.preventDefault()
-
     try {
       const payload = {
         amount: parseFloat(editFormData.amount),
@@ -502,7 +533,6 @@ const IncomePage = () => {
       }
 
       const response = await api.put(`/income/update/${editFormData.id}`, payload)
-
       if (response.success) {
         toast.success('Income updated successfully!')
         setShowEditModal(false)
@@ -526,6 +556,22 @@ const IncomePage = () => {
       }
     } catch (error) {
       toast.error('Failed to delete income')
+    }
+  }
+
+  const fetchAiInsights = async () => {
+    try {
+      const response = await api.get('/income/ai-insights')
+      if (response.success) {
+        setAiInsights(response.data)
+        setShowAiInsights(true)
+      }
+    } catch (error) {
+      if (error.response?.status === 503) {
+        toast.error('AI Service is currently unavailable')
+      } else {
+        toast.error('Failed to fetch AI insights')
+      }
     }
   }
 
@@ -616,6 +662,8 @@ const IncomePage = () => {
     setShowBulkAdd(true)
   }
 
+  const paginatedIncomes = getPaginatedIncomes()
+
   if (loading) {
     return (
       <div className='min-h-screen flex items-center justify-center'>
@@ -631,7 +679,7 @@ const IncomePage = () => {
         <Header />
         <main className='flex-1 p-6'>
           <div className='max-w-7xl mx-auto'>
-            {/* Header with Actions */}
+            {/* Header */}
             <div className='flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4'>
               <div>
                 <h1 className='text-3xl font-bold text-gray-900'>Income Management</h1>
@@ -1375,6 +1423,40 @@ const IncomePage = () => {
               </div>
             </div>
 
+            {/* Sorting Controls */}
+            <div className='mb-6 flex items-center gap-4'>
+              <span className='text-sm font-medium text-gray-700'>Sort by:</span>
+              <div className='flex gap-2'>
+                <button
+                  onClick={() => handleSort('date')}
+                  className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${
+                    sortBy === 'date' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  <FaCalendarAlt />
+                  Date {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+                <button
+                  onClick={() => handleSort('amount')}
+                  className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${
+                    sortBy === 'amount' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  <FaSortAmountDown />
+                  Amount {sortBy === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+                <button
+                  onClick={() => handleSort('category')}
+                  className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${
+                    sortBy === 'category' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  <FaTag />
+                  Category {sortBy === 'category' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </button>
+              </div>
+            </div>
+
             {/* Charts */}
             <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8'>
               <div className='card'>
@@ -1484,34 +1566,74 @@ const IncomePage = () => {
               </div>
             )}
 
-            {/* Income Table */}
+            {/* Recent Transactions */}
             <div className='card'>
               <div className='flex justify-between items-center mb-4'>
                 <h3 className='text-lg font-semibold text-gray-900'>Recent Transactions</h3>
                 <div className='text-sm text-gray-600'>
-                  Showing {Math.min(filteredIncomes.length, 10)} of {filteredIncomes.length} transactions
+                  Showing {paginatedIncomes.length} of {pagination.totalCount} transactions
                 </div>
               </div>
-              {filteredIncomes.length > 0
+
+              {paginatedIncomes.length > 0
                 ? (
-                  <div className='overflow-x-auto'>
-                    <table className='w-full'>
-                      <thead>
-                        <tr className='border-b border-gray-200'>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>Date</th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>Category</th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>Source</th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>Description</th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>Status</th>
-                          <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>Amount</th>
-                          <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredIncomes
-                          .sort((a, b) => new Date(b.creditedOn) - new Date(a.creditedOn))
-                          .slice(0, 10)
-                          .map((income) => (
+                  <>
+                    <div className='overflow-x-auto'>
+                      <table className='w-full'>
+                        <thead>
+                          <tr className='border-b border-gray-200'>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              <button
+                                onClick={() => handleSort('date')}
+                                className='flex items-center gap-1 hover:text-blue-600'
+                              >
+                                <FaCalendarAlt className='w-4 h-4' />
+                                Date
+                                {sortBy === 'date' && (
+                                  <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              <button
+                                onClick={() => handleSort('category')}
+                                className='flex items-center gap-1 hover:text-blue-600'
+                              >
+                                <FaTag className='w-4 h-4' />
+                                Category
+                                {sortBy === 'category' && (
+                                  <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Source
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Description
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Status
+                            </th>
+                            <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>
+                              <button
+                                onClick={() => handleSort('amount')}
+                                className='flex items-center gap-1 hover:text-blue-600 justify-end'
+                              >
+                                <FaSortAmountDown className='w-4 h-4' />
+                                Amount
+                                {sortBy === 'amount' && (
+                                  <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedIncomes.map((income) => (
                             <tr key={income._id} className='border-b border-gray-100 hover:bg-gray-50 transition'>
                               <td className='py-3 px-4 text-sm text-gray-600'>
                                 <div className='flex flex-col'>
@@ -1537,12 +1659,12 @@ const IncomePage = () => {
                               </td>
                               <td className='py-3 px-4 text-sm'>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              income.status === 'Received'
-                                ? 'bg-green-100 text-green-700'
-                                : income.status === 'Pending'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-red-100 text-red-700'
-                            }`}
+                                  income.status === 'Received'
+                                    ? 'bg-green-100 text-green-700'
+                                    : income.status === 'Pending'
+                                    ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}
                                 >
                                   {income.status}
                                 </span>
@@ -1550,7 +1672,7 @@ const IncomePage = () => {
                               <td className='py-3 px-4 text-sm font-semibold text-green-600 text-right'>
                                 +{formatCurrency(income.amount, user?.currency)}
                               </td>
-                              <td className='py-3 px-4 text-sm text-right'>
+                              <td className='py-3 px-4 text-sm text-right space-x-2'>
                                 <div className='flex justify-end gap-2'>
                                   <button
                                     onClick={() => openEditForm(income)}
@@ -1568,9 +1690,43 @@ const IncomePage = () => {
                               </td>
                             </tr>
                           ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {pagination.totalPages > 1 && (
+                      <div className='flex justify-between items-center mt-6 pt-6 border-t border-gray-200'>
+                        <div className='text-sm text-gray-600'>
+                          Page {pagination.page} of {pagination.totalPages}
+                        </div>
+                        <div className='flex gap-2'>
+                          <button
+                            onClick={() => handlePageChange(pagination.page - 1)}
+                            disabled={pagination.page <= 1}
+                            className={`px-3 py-1 rounded text-sm ${
+                              pagination.page <= 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            Previous
+                          </button>
+                          <button
+                            onClick={() => handlePageChange(pagination.page + 1)}
+                            disabled={pagination.page >= pagination.totalPages}
+                            className={`px-3 py-1 rounded text-sm ${
+                              pagination.page >= pagination.totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                   )
                 : (
                   <div className='text-center py-10'>

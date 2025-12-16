@@ -2,7 +2,7 @@ const express = require('express')
 const User = require('../models/User')
 const Expense = require('../models/Expense')
 const router = express.Router()
-const { body, validationResult } = require('express-validator')
+const { body, validationResult, query, param } = require('express-validator')
 const fetchuser = require('../middleware/fetchuser')
 const mongoose = require('mongoose')
 
@@ -139,9 +139,10 @@ router.post('/add', fetchuser, [
   }
 })
 
-// ROUTE 2: GET ALL EXPENSES using "/api/expense/all" LOGIN REQUIRED
+// ROUTE 2: GET ALL EXPENSES - FIXED VERSION
 router.get('/all', fetchuser, async (req, res) => {
   try {
+    
     const {
       month,
       year,
@@ -155,7 +156,10 @@ router.get('/all', fetchuser, async (req, res) => {
     } = req.query
 
     const userId = req.user.id
-    const query = { userId }
+    
+    // FIXED: Use 'new' keyword with ObjectId
+    const query = { userId: new mongoose.Types.ObjectId(userId) }
+
 
     // Filter by month and year
     if (month && year) {
@@ -200,6 +204,7 @@ router.get('/all', fetchuser, async (req, res) => {
       .skip(skip)
       .limit(pageSize)
 
+
     // Get total count for pagination info
     const totalCount = await Expense.countDocuments(query)
     const totalAmount = await Expense.aggregate([
@@ -217,16 +222,16 @@ router.get('/all', fetchuser, async (req, res) => {
       totalPages: Math.ceil(totalCount / pageSize),
       pageSize
     }
-
+    
     res.json({
       success: true,
-      message: 'Expenses fetched successfully',
+      message: expenses.length > 0 ? 'Expenses fetched successfully' : 'No expenses found',
       data: expenses,
       stats,
       aiInsights
     })
   } catch (error) {
-    console.error(error.message)
+    console.error('Error in /expense/all:', error.message);
     res.status(500).json({
       success: false,
       message: 'Internal Server Error',
@@ -547,7 +552,7 @@ function getMonthlySuggestion (totalAmount, essentialAmount, nonEssentialAmount)
   return suggestions.length > 0 ? suggestions[0] : 'Your spending looks balanced this month.'
 }
 
-// ROUTE 6: GET AI EXPENSE INSIGHTS using "/api/expense/ai-insights" LOGIN REQUIRED
+// ROUTE 7: GET AI EXPENSE INSIGHTS using "/api/expense/ai-insights" LOGIN REQUIRED
 router.get('/ai-insights', fetchuser, async (req, res) => {
   try {
     if (!isAIAvailable()) {
@@ -613,7 +618,7 @@ router.get('/ai-insights', fetchuser, async (req, res) => {
   }
 })
 
-// ROUTE 7: TOGGLE EXPENSE ESSENTIAL STATUS using "/api/expense/toggle-essential/:id" LOGIN REQUIRED
+// ROUTE 8: TOGGLE EXPENSE ESSENTIAL STATUS using "/api/expense/toggle-essential/:id" LOGIN REQUIRED
 router.put('/toggle-essential/:id', fetchuser, async (req, res) => {
   try {
     const expense = await Expense.findOne({
@@ -648,7 +653,7 @@ router.put('/toggle-essential/:id', fetchuser, async (req, res) => {
   }
 })
 
-// ROUTE 8: ADD BULK EXPENSES using "/api/expense/bulk-add" LOGIN REQUIRED
+// ROUTE 9: ADD BULK EXPENSES using "/api/expense/bulk-add" LOGIN REQUIRED
 router.post('/bulk-add', fetchuser, [
   body('expenses', 'Expenses array is required').isArray({ min: 1 }),
   body('expenses.*.amount', 'Amount must be a positive number').isFloat({ min: 0.01 }),
@@ -725,7 +730,7 @@ router.post('/bulk-add', fetchuser, [
 
 // ===== GENERIC ROUTES MUST COME LAST =====
 
-// ROUTE 9: GET SINGLE EXPENSE using "/api/expense/:id" LOGIN REQUIRED
+// ROUTE 10: GET SINGLE EXPENSE using "/api/expense/:id" LOGIN REQUIRED
 router.get('/:id', fetchuser, async (req, res) => {
   try {
     const expense = await Expense.findOne({
@@ -755,7 +760,7 @@ router.get('/:id', fetchuser, async (req, res) => {
   }
 })
 
-// ROUTE 10: UPDATE EXPENSE using "/api/expense/update/:id" LOGIN REQUIRED
+// ROUTE 11: UPDATE EXPENSE using "/api/expense/update/:id" LOGIN REQUIRED
 router.put('/update/:id', fetchuser, [
   body('amount', 'Amount must be a positive number').optional().isFloat({ min: 0.01 }),
   body('category', 'Invalid category').optional().isIn(['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Healthcare', 'Education', 'Housing', 'Personal', 'Other']),
@@ -850,7 +855,7 @@ router.put('/update/:id', fetchuser, [
   }
 })
 
-// ROUTE 11: DELETE EXPENSE using "/api/expense/delete/:id" LOGIN REQUIRED
+// ROUTE 12: DELETE EXPENSE using "/api/expense/delete/:id" LOGIN REQUIRED
 router.delete('/delete/:id', fetchuser, async (req, res) => {
   try {
     const expense = await Expense.findOne({

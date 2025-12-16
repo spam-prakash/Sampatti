@@ -1,7 +1,7 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
-import { Toaster } from 'react-hot-toast'
+import { Toaster, toast } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import ProtectedRoute from './components/common/ProtectedRoute.jsx'
 
@@ -24,23 +24,53 @@ function App () {
           <div className='min-h-screen bg-gray-50'>
             <Toaster
               position='top-right'
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#363636',
-                  color: '#fff'
-                },
+              containerStyle={{ top: 72 }}
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: '#363636',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px'
+                  },
+                action: (t) => (
+                  <button
+                    onClick={() => toast.dismiss(t.id)}
+                    style={{
+                      background: 'transparent',
+                      color: '#fff',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      padding: '0 8px',
+                      marginLeft: '12px',
+                      pointerEvents: 'auto',
+                      zIndex: 9999
+                    }}
+                    aria-label='close'
+                  >
+                    ✕
+                  </button>
+                ),
                 success: {
                   duration: 3000,
-                  style: {
-                    background: '#10b981'
-                  }
+                    style: {
+                      background: '#10b981',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }
                 },
                 error: {
                   duration: 4000,
-                  style: {
-                    background: '#ef4444'
-                  }
+                    style: {
+                      background: '#ef4444',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }
                 }
               }}
             />

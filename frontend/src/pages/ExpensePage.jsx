@@ -11,7 +11,8 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  Filler
 } from 'chart.js'
 import {
   FaPlus,
@@ -56,13 +57,15 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  Filler
 )
 
 const ExpensePage = () => {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [expenses, setExpenses] = useState([])
+  const [allExpenses, setAllExpenses] = useState([])
   const [filteredExpenses, setFilteredExpenses] = useState([])
   const [categoryData, setCategoryData] = useState(null)
   const [timelineData, setTimelineData] = useState(null)
@@ -73,12 +76,16 @@ const ExpensePage = () => {
   const [monthlyAnalysis, setMonthlyAnalysis] = useState(null)
   const [aiInsights, setAiInsights] = useState(null)
   const [monthlyTrendData, setMonthlyTrendData] = useState(null)
+
+  // Pagination state
   const [pagination, setPagination] = useState({
     page: 1,
     totalPages: 1,
     totalCount: 0,
     pageSize: 10
   })
+  const [sortBy, setSortBy] = useState('date')
+  const [sortOrder, setSortOrder] = useState('desc')
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -90,10 +97,7 @@ const ExpensePage = () => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('all')
   const [selectedEssential, setSelectedEssential] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
-  const [sortBy, setSortBy] = useState('date')
-  const [sortOrder, setSortOrder] = useState('desc')
 
-  // Single expense form data
   const [formData, setFormData] = useState({
     amount: '',
     category: 'Food',
@@ -110,7 +114,6 @@ const ExpensePage = () => {
     notes: ''
   })
 
-  // Bulk expense form data
   const [bulkFormData, setBulkFormData] = useState([{
     amount: '',
     category: 'Food',
@@ -182,7 +185,6 @@ const ExpensePage = () => {
     '#8b5cf6'
   ]
 
-  // Memoized category options for filter dropdown
   const categoryOptions = useMemo(() => {
     return categories.map(cat => ({
       value: cat._id || cat.name || cat.category,
@@ -197,22 +199,16 @@ const ExpensePage = () => {
   useEffect(() => {
     filterExpenses()
     generateCharts()
-  }, [expenses, filter, selectedCategory, selectedPaymentMethod, selectedEssential, selectedStatus, sortBy, sortOrder])
+    updatePagination()
+  }, [allExpenses, expenses, filter, selectedCategory, selectedPaymentMethod, selectedEssential, selectedStatus, sortBy, sortOrder])
 
   const fetchAllData = async () => {
     try {
       setLoading(true)
-
-      // Fetch expenses with initial pagination
-      await fetchExpenses(1, 10)
-
-      // Fetch categories
+      await fetchAllForCharts()
+      await fetchExpenses()
       await fetchCategories()
-
-      // Fetch statistics
       await fetchStatistics()
-
-      // Fetch monthly analysis
       await fetchMonthlyAnalysis()
     } catch (error) {
       toast.error('Failed to fetch expense data')
@@ -222,34 +218,36 @@ const ExpensePage = () => {
     }
   }
 
-  const fetchExpenses = async (page = 1, limit = 10) => {
+  const fetchAllForCharts = async () => {
     try {
-      const params = {
-        page,
-        limit,
-        ...(selectedCategory !== 'all' && { category: selectedCategory }),
-        ...(selectedPaymentMethod !== 'all' && { paymentMethod: selectedPaymentMethod }),
-        ...(selectedEssential !== 'all' && { isEssential: selectedEssential === 'essential' }),
-        ...(selectedStatus !== 'all' && { status: selectedStatus }),
-        ...(filter !== 'all' && getDateFilterParams())
+      const fullResp = await api.get('/expense/all', { params: { limit: 1000 } })
+      if (fullResp.success) {
+        setAllExpenses(fullResp.data || [])
       }
+    } catch (err) {
+      console.warn('Could not fetch full expenses for charts:', err.message || err)
+    }
+  }
 
-      const response = await api.get('/expense/all', { params })
+  const fetchExpenses = async () => {
+    try {
+      const response = await api.get('/expense/all', { params: { limit: 1000 } })
       if (response.success) {
         setExpenses(response.data || [])
         setFilteredExpenses(response.data || [])
 
-        // Update pagination info from stats
-        if (response.stats) {
-          setPagination({
-            page: response.stats.page || 1,
-            totalPages: response.stats.totalPages || 1,
-            totalCount: response.stats.totalCount || 0,
-            pageSize: response.stats.pageSize || 10
-          })
-        }
+        // IGNORE the backend's pageSize and always use 10
+        const totalCount = response.data?.length || 0
+        const pageSize = 10 // ALWAYS use 10 items per page
+        const totalPages = Math.ceil(totalCount / pageSize)
 
-        // Calculate total expense
+        setPagination({
+          page: 1, // Always start at page 1
+          totalPages,
+          totalCount,
+          pageSize: 10 // <-- Force it to 10, ignore backend's 1000
+        })
+
         const total = (response.data || []).reduce((sum, exp) => sum + exp.amount, 0)
         setTotalExpense(total)
       }
@@ -265,7 +263,6 @@ const ExpensePage = () => {
       if (response.success) {
         setCategories(response.data || [])
       } else {
-        // Fallback to default categories if API fails
         setCategories(EXPENSE_CATEGORIES.map(cat => ({
           _id: cat,
           name: cat,
@@ -289,8 +286,6 @@ const ExpensePage = () => {
       const response = await api.get('/expense/stats')
       if (response.success) {
         setStats(response.data)
-
-        // Generate monthly trend chart data
         if (response.data.monthlyTrend) {
           generateMonthlyTrendChart(response.data.monthlyTrend)
         }
@@ -311,55 +306,10 @@ const ExpensePage = () => {
     }
   }
 
-  const fetchAiInsights = async () => {
-    try {
-      const response = await api.get('/expense/ai-insights')
-      if (response.success) {
-        setAiInsights(response.data)
-        setShowAiInsights(true)
-      }
-    } catch (error) {
-      if (error.response?.status === 503) {
-        toast.error('AI Service is currently unavailable')
-      } else {
-        toast.error('Failed to fetch AI insights')
-      }
-    }
-  }
-
-  const getDateFilterParams = () => {
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
-
-    switch (filter) {
-      case 'month':
-        return {
-          month: now.getMonth() + 1,
-          year: now.getFullYear()
-        }
-      case 'quarter':
-        const quarter = Math.floor(now.getMonth() / 3)
-        const quarterStartMonth = quarter * 3
-        const quarterEndMonth = quarterStartMonth + 2
-        return {
-          startDate: new Date(now.getFullYear(), quarterStartMonth, 1),
-          endDate: new Date(now.getFullYear(), quarterEndMonth + 1, 0, 23, 59, 59, 999)
-        }
-      case 'year':
-        return {
-          startDate: new Date(now.getFullYear(), 0, 1),
-          endDate: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
-        }
-      default:
-        return {}
-    }
-  }
-
   const filterExpenses = useCallback(() => {
-    let filtered = [...expenses]
+    const source = (allExpenses && allExpenses.length > 0) ? allExpenses : expenses
+    let filtered = [...source]
 
-    // Apply period filter
     if (filter !== 'all') {
       const now = new Date()
       filtered = filtered.filter((exp) => {
@@ -383,30 +333,43 @@ const ExpensePage = () => {
       })
     }
 
-    // Apply category filter
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(exp => exp.category === selectedCategory)
     }
 
-    // Apply payment method filter
     if (selectedPaymentMethod !== 'all') {
       filtered = filtered.filter(exp => exp.paymentMethod === selectedPaymentMethod)
     }
 
-    // Apply essential filter
     if (selectedEssential !== 'all') {
       filtered = filtered.filter(exp =>
         selectedEssential === 'essential' ? exp.isEssential : !exp.isEssential
       )
     }
 
-    // Apply status filter
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(exp => exp.status === selectedStatus)
     }
 
-    // Apply sorting
-    filtered.sort((a, b) => {
+    setFilteredExpenses(filtered)
+    const total = filtered.reduce((sum, exp) => sum + exp.amount, 0)
+    setTotalExpense(total)
+  }, [allExpenses, expenses, filter, selectedCategory, selectedPaymentMethod, selectedEssential, selectedStatus])
+
+  const updatePagination = () => {
+    const totalCount = filteredExpenses.length
+    const totalPages = Math.ceil(totalCount / pagination.pageSize)
+
+    setPagination(prev => ({
+      ...prev,
+      totalPages,
+      totalCount,
+      page: prev.page > totalPages ? 1 : prev.page
+    }))
+  }
+
+  const getPaginatedExpenses = () => {
+    const sorted = [...filteredExpenses].sort((a, b) => {
       let aValue, bValue
 
       switch (sortBy) {
@@ -429,10 +392,26 @@ const ExpensePage = () => {
       return 0
     })
 
-    setFilteredExpenses(filtered)
-    const total = filtered.reduce((sum, exp) => sum + exp.amount, 0)
-    setTotalExpense(total)
-  }, [expenses, filter, selectedCategory, selectedPaymentMethod, selectedEssential, selectedStatus, sortBy, sortOrder])
+    const startIndex = (pagination.page - 1) * pagination.pageSize
+    const endIndex = startIndex + pagination.pageSize
+
+    return sorted.slice(startIndex, endIndex)
+  }
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(field)
+      setSortOrder('desc')
+    }
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      setPagination(prev => ({ ...prev, page: newPage }))
+    }
+  }
 
   const generateCharts = () => {
     if (filteredExpenses.length === 0) {
@@ -442,7 +421,6 @@ const ExpensePage = () => {
       return
     }
 
-    // Category Distribution
     const categoryTotals = {}
     filteredExpenses.forEach((exp) => {
       if (exp.category) {
@@ -466,7 +444,6 @@ const ExpensePage = () => {
       setCategoryData(null)
     }
 
-    // Essential vs Non-Essential
     const essential = filteredExpenses
       .filter((exp) => exp.isEssential)
       .reduce((sum, exp) => sum + exp.amount, 0)
@@ -490,40 +467,50 @@ const ExpensePage = () => {
       setEssentialVsNonEssential(null)
     }
 
-    // Timeline
-    const sortedExpenses = [...filteredExpenses].sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
-    )
+    const source = allExpenses && allExpenses.length > 0 ? allExpenses : filteredExpenses
 
-    const groupedByDate = {}
-    sortedExpenses.forEach((exp) => {
-      if (exp.date) {
-        const date = new Date(exp.date).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        })
-        groupedByDate[date] = (groupedByDate[date] || 0) + exp.amount
-      }
-    })
+    if (source && source.length > 0) {
+      const sortedExpenses = [...source].sort((a, b) => new Date(a.date) - new Date(b.date))
 
-    if (Object.keys(groupedByDate).length > 0) {
-      setTimelineData({
-        labels: Object.keys(groupedByDate),
-        datasets: [
-          {
-            label: 'Expenses',
-            data: Object.values(groupedByDate),
-            borderColor: '#ef4444',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            tension: 0.4,
-            fill: true,
-            pointBackgroundColor: '#ef4444',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-            pointRadius: 5
-          }
-        ]
+      const groupedByDate = {}
+      sortedExpenses.forEach((exp) => {
+        const isoKey = formatDateToYYYYMMDD(new Date(exp.date))
+        groupedByDate[isoKey] = (groupedByDate[isoKey] || 0) + exp.amount
       })
+
+      const first = new Date(sortedExpenses[0].date)
+      const last = new Date(sortedExpenses[sortedExpenses.length - 1].date)
+
+      const labels = []
+      const values = []
+
+      for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
+        const tmp = new Date(d)
+        const iso = formatDateToYYYYMMDD(tmp)
+        const label = tmp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        labels.push(label)
+        values.push(groupedByDate[iso] || 0)
+      }
+
+      const lineData = {
+        labels,
+        datasets: [{
+          label: 'Expense Spent',
+          data: values,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+          cubicInterpolationMode: 'monotone',
+          tension: 0.3,
+          fill: true,
+          pointBackgroundColor: '#ef4444',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      }
+
+      setTimelineData(lineData)
     } else {
       setTimelineData(null)
     }
@@ -535,7 +522,6 @@ const ExpensePage = () => {
       return
     }
 
-    // Group by month
     const groupedByMonth = {}
     monthlyTrend.forEach(item => {
       const monthKey = item.month || `${item._id?.year}-${String(item._id?.month).padStart(2, '0')}`
@@ -720,6 +706,22 @@ const ExpensePage = () => {
     }
   }
 
+  const fetchAiInsights = async () => {
+    try {
+      const response = await api.get('/expense/ai-insights')
+      if (response.success) {
+        setAiInsights(response.data)
+        setShowAiInsights(true)
+      }
+    } catch (error) {
+      if (error.response?.status === 503) {
+        toast.error('AI Service is currently unavailable')
+      } else {
+        toast.error('Failed to fetch AI insights')
+      }
+    }
+  }
+
   const openEditForm = (expense) => {
     setEditFormData({
       id: expense._id,
@@ -835,20 +837,7 @@ const ExpensePage = () => {
     setShowBulkAdd(true)
   }
 
-  const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortBy(field)
-      setSortOrder('desc')
-    }
-  }
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= pagination.totalPages) {
-      fetchExpenses(newPage, pagination.pageSize)
-    }
-  }
+  const paginatedExpenses = getPaginatedExpenses()
 
   if (loading) {
     return (
@@ -865,20 +854,13 @@ const ExpensePage = () => {
         <Header />
         <main className='flex-1 p-6'>
           <div className='max-w-7xl mx-auto'>
-            {/* Header with Actions */}
+            {/* Header */}
             <div className='flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4'>
               <div>
                 <h1 className='text-3xl font-bold text-gray-900'>Expense Management</h1>
                 <p className='text-gray-600 mt-1'>Track, analyze and optimize your spending patterns</p>
               </div>
               <div className='flex flex-wrap gap-2'>
-                <button
-                  onClick={() => setShowStats(true)}
-                  className='btn-secondary flex items-center gap-2'
-                >
-                  <FaChartLine />
-                  View Stats
-                </button>
                 <button
                   onClick={fetchAiInsights}
                   className='btn-primary flex items-center gap-2 bg-purple-600 hover:bg-purple-700'
@@ -1997,7 +1979,6 @@ const ExpensePage = () => {
 
             {/* Charts */}
             <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8'>
-              {/* Category Distribution */}
               <div className='card'>
                 <h3 className='text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2'>
                   <FaChartPie />
@@ -2026,11 +2007,10 @@ const ExpensePage = () => {
                     </div>
                     )
                   : (
-                    <p className='text-gray-500 text-center py-10'>No expense data available for selected filters</p>
+                    <p className='text-gray-500 text-center py-10'>No expense data available</p>
                     )}
               </div>
 
-              {/* Essential vs Non-Essential */}
               <div className='card'>
                 <h3 className='text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2'>
                   <FaArrowUp />
@@ -2059,7 +2039,7 @@ const ExpensePage = () => {
                     </div>
                     )
                   : (
-                    <p className='text-gray-500 text-center py-10'>No expense data available for selected filters</p>
+                    <p className='text-gray-500 text-center py-10'>No expense data available</p>
                     )}
               </div>
             </div>
@@ -2081,20 +2061,11 @@ const ExpensePage = () => {
                         plugins: {
                           legend: {
                             display: true,
-                            labels: {
-                              font: { size: 12 }
-                            }
+                            labels: { font: { size: 12 } }
                           }
                         },
                         scales: {
-                          y: {
-                            beginAtZero: true,
-                            ticks: {
-                              callback: function (value) {
-                                return formatCurrency(value, user?.currency, true)
-                              }
-                            }
-                          }
+                          y: { beginAtZero: true, ticks: { callback: (val) => formatCurrency(val) } }
                         }
                       }}
                     />
@@ -2110,145 +2081,172 @@ const ExpensePage = () => {
               <div className='flex justify-between items-center mb-4'>
                 <h3 className='text-lg font-semibold text-gray-900'>Recent Transactions</h3>
                 <div className='text-sm text-gray-600'>
-                  Showing {filteredExpenses.length} of {pagination.totalCount} transactions
+                  Showing {paginatedExpenses.length} of {filteredExpenses.length} transactions
                 </div>
               </div>
-              {filteredExpenses.length > 0
+
+              {paginatedExpenses.length > 0
                 ? (
-                  <div className='overflow-x-auto'>
-                    <table className='w-full'>
-                      <thead>
-                        <tr className='border-b border-gray-200'>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
-                            <button
-                              onClick={() => handleSort('date')}
-                              className='flex items-center gap-1 hover:text-blue-600'
-                            >
-                              Date
-                              {sortBy === 'date' && (
-                                <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                              )}
-                            </button>
-                          </th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
-                            <button
-                              onClick={() => handleSort('category')}
-                              className='flex items-center gap-1 hover:text-blue-600'
-                            >
-                              Category
-                              {sortBy === 'category' && (
-                                <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                              )}
-                            </button>
-                          </th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
-                            Description
-                          </th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
-                            Payment
-                          </th>
-                          <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
-                            Status
-                          </th>
-                          <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>
-                            <button
-                              onClick={() => handleSort('amount')}
-                              className='flex items-center gap-1 hover:text-blue-600 justify-end'
-                            >
-                              Amount
-                              {sortBy === 'amount' && (
-                                <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                              )}
-                            </button>
-                          </th>
-                          <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredExpenses.map((expense) => (
-                          <tr
-                            key={expense._id}
-                            className='border-b border-gray-100 hover:bg-gray-50 transition'
-                          >
-                            <td className='py-3 px-4 text-sm text-gray-600'>
-                              <div className='flex flex-col'>
-                                <span>{formatDate(expense.date)}</span>
-                                {expense.isRecurring && (
-                                  <span className='text-xs text-yellow-600 mt-1'>
-                                    <FaSync className='inline w-3 h-3 mr-1' />
-                                    {expense.recurrenceType}
-                                  </span>
+                  <>
+                    <div className='overflow-x-auto'>
+                      <table className='w-full'>
+                        <thead>
+                          <tr className='border-b border-gray-200'>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              <button
+                                onClick={() => handleSort('date')}
+                                className='flex items-center gap-1 hover:text-blue-600'
+                              >
+                                <FaCalendarAlt className='w-4 h-4' />
+                                Date
+                                {sortBy === 'date' && (
+                                  <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
                                 )}
-                              </div>
-                            </td>
-                            <td className='py-3 px-4 text-sm'>
-                              <div className='flex items-center gap-2'>
-                                {CATEGORY_ICONS[expense.category] || <FaTag className='text-gray-500' />}
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                  expense.isEssential
+                              </button>
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              <button
+                                onClick={() => handleSort('category')}
+                                className='flex items-center gap-1 hover:text-blue-600'
+                              >
+                                <FaTag className='w-4 h-4' />
+                                Category
+                                {sortBy === 'category' && (
+                                  <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Description
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Payment
+                            </th>
+                            <th className='text-left py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Status
+                            </th>
+                            <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>
+                              <button
+                                onClick={() => handleSort('amount')}
+                                className='flex items-center gap-1 hover:text-blue-600 justify-end'
+                              >
+                                <FaSortAmountDown className='w-4 h-4' />
+                                Amount
+                                {sortBy === 'amount' && (
+                                  <span>{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                                )}
+                              </button>
+                            </th>
+                            <th className='text-right py-3 px-4 text-sm font-semibold text-gray-700'>
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedExpenses.map((expense) => (
+                            <tr
+                              key={expense._id}
+                              className='border-b border-gray-100 hover:bg-gray-50 transition'
+                            >
+                              <td className='py-3 px-4 text-sm text-gray-600'>
+                                <div className='flex flex-col'>
+                                  <span>{formatDate(expense.date)}</span>
+                                  {expense.isRecurring && (
+                                    <span className='text-xs text-yellow-600 mt-1'>
+                                      <FaSync className='inline w-3 h-3 mr-1' />
+                                      {expense.recurrenceType}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className='py-3 px-4 text-sm'>
+                                <div className='flex items-center gap-2'>
+                                  {CATEGORY_ICONS[expense.category] || <FaTag className='text-gray-500' />}
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                    expense.isEssential
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-yellow-100 text-yellow-700'
+                                  }`}
+                                  >
+                                    {expense.category}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className='py-3 px-4 text-sm text-gray-600 max-w-xs truncate'>
+                                {expense.description || '-'}
+                              </td>
+                              <td className='py-3 px-4 text-sm text-gray-600'>
+                                {expense.paymentMethod || 'Cash'}
+                              </td>
+                              <td className='py-3 px-4 text-sm'>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  expense.status === 'Completed'
                                     ? 'bg-green-100 text-green-700'
-                                    : 'bg-yellow-100 text-yellow-700'
+                                    : expense.status === 'Pending'
+                                    ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-red-100 text-red-700'
                                 }`}
                                 >
-                                  {expense.category}
+                                  {expense.status}
                                 </span>
-                              </div>
-                            </td>
-                            <td className='py-3 px-4 text-sm text-gray-600 max-w-xs truncate'>
-                              {expense.description || '-'}
-                            </td>
-                            <td className='py-3 px-4 text-sm text-gray-600'>
-                              {expense.paymentMethod || 'Cash'}
-                            </td>
-                            <td className='py-3 px-4 text-sm'>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                expense.status === 'Completed'
-                                  ? 'bg-green-100 text-green-700'
-                                  : expense.status === 'Pending'
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-red-100 text-red-700'
-                              }`}
-                              >
-                                {expense.status}
-                              </span>
-                            </td>
-                            <td className='py-3 px-4 text-sm font-semibold text-red-600 text-right'>
-                              -{formatCurrency(expense.amount, user?.currency)}
-                            </td>
-                            <td className='py-3 px-4 text-sm text-right space-x-2'>
-                              <div className='flex justify-end gap-2'>
-                                <button
-                                  onClick={() => openEditForm(expense)}
-                                  className='text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1'
-                                >
-                                  <FaEdit className='w-3 h-3' /> Edit
-                                </button>
-                                <button
-                                  onClick={() => handleToggleEssential(expense._id)}
-                                  className={`text-xs font-medium flex items-center gap-1 ${
-                                    expense.isEssential
-                                      ? 'text-yellow-600 hover:text-yellow-800'
-                                      : 'text-green-600 hover:text-green-800'
-                                  }`}
-                                >
-                                  <FaTag className='w-3 h-3' />
-                                  {expense.isEssential ? 'Mark Non-Essential' : 'Mark Essential'}
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteExpense(expense._id)}
-                                  className='text-red-600 hover:text-red-800 text-xs font-medium flex items-center gap-1'
-                                >
-                                  <FaTrash className='w-3 h-3' /> Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                              </td>
+                              <td className='py-3 px-4 text-sm font-semibold text-red-600 text-right'>
+                                -{formatCurrency(expense.amount, user?.currency)}
+                              </td>
+                              <td className='py-3 px-4 text-sm text-right space-x-2'>
+                                <div className='flex justify-end gap-2'>
+                                  <button
+                                    onClick={() => openEditForm(expense)}
+                                    className='text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1'
+                                  >
+                                    <FaEdit className='w-3 h-3' /> Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteExpense(expense._id)}
+                                    className='text-red-600 hover:text-red-800 text-xs font-medium flex items-center gap-1'
+                                  >
+                                    <FaTrash className='w-3 h-3' /> Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* PAGINATION - ALWAYS SHOW EVEN IF ONLY 1 PAGE */}
+                    <div className='flex justify-between items-center mt-6 pt-6 border-t border-gray-200'>
+                      <div className='text-sm text-gray-600'>
+                        Page {pagination.page} of {pagination.totalPages}
+                        <span className='ml-2'>({filteredExpenses.length} total records)</span>
+                      </div>
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => handlePageChange(pagination.page - 1)}
+                          disabled={pagination.page <= 1}
+                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                            pagination.page <= 1
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => handlePageChange(pagination.page + 1)}
+                          disabled={pagination.page >= pagination.totalPages}
+                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                            pagination.page >= pagination.totalPages
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  </>
                   )
                 : (
                   <div className='text-center py-10'>
@@ -2263,39 +2261,6 @@ const ExpensePage = () => {
                     </button>
                   </div>
                   )}
-
-              {/* Pagination */}
-              {pagination.totalPages > 1 && (
-                <div className='flex justify-between items-center mt-6 pt-6 border-t border-gray-200'>
-                  <div className='text-sm text-gray-600'>
-                    Page {pagination.page} of {pagination.totalPages} • {pagination.totalCount} total expenses
-                  </div>
-                  <div className='flex gap-2'>
-                    <button
-                      onClick={() => handlePageChange(pagination.page - 1)}
-                      disabled={pagination.page <= 1}
-                      className={`px-3 py-1 rounded text-sm ${
-                        pagination.page <= 1
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(pagination.page + 1)}
-                      disabled={pagination.page >= pagination.totalPages}
-                      className={`px-3 py-1 rounded text-sm ${
-                        pagination.page >= pagination.totalPages
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </main>

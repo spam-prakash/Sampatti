@@ -1,13 +1,3 @@
-// Format currency
-export const formatCurrency = (amount, currency = 'INR') => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  }).format(amount)
-}
-
 // Format date
 export const formatDate = (dateString) => {
   const date = new Date(dateString)
@@ -138,4 +128,34 @@ export const getYesterdayDate = () => {
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   return formatDateToYYYYMMDD(yesterday)
+}
+
+// Add this function to get week number
+export const getWeekNumber = (date) => {
+  // Copy date so don't modify original
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  // Set to nearest Thursday: current date + 4 - current day number
+  // Make Sunday's day number 7
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
+  // Get first day of year
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  // Calculate full weeks to nearest Thursday
+  const weekNumber = Math.ceil(((d - yearStart) / 86400000 + 1) / 7)
+  return weekNumber
+}
+
+// Improved formatCurrency function
+export const formatCurrency = (amount, currency = 'INR', compact = false) => {
+  if (typeof amount !== 'number') {
+    amount = parseFloat(amount) || 0
+  }
+
+  if (compact && Math.abs(amount) >= 1000) {
+    return `${currency}${(amount / 1000).toFixed(1)}k`
+  }
+
+  return `${amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`
 }
