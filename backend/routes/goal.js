@@ -1,8 +1,8 @@
 const express = require('express')
-const User = require('../models/User')
-const Goal = require('../models/Goal')
-const Income = require('../models/Income') // Add this
-const Expense = require('../models/Expense') // Add this
+const User = require('../123/User')
+const Goal = require('../123/Goal')
+const Income = require('../123/Income') // Add this
+const Expense = require('../123/Expense') // Add this
 const router = express.Router()
 const { body, validationResult } = require('express-validator')
 const fetchuser = require('../middleware/fetchuser')
