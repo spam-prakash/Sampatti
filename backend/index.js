@@ -6,6 +6,8 @@ const cors = require('cors')
 
 const connectToMongo = require('./db')
 
+// Connect to MongoDB at startup
+connectToMongo()
 const PORT = 8000
 
 // prevent model overwrite on hot reload

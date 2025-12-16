@@ -1,38 +1,34 @@
 const mongoose = require('mongoose')
 
-// Global cache for serverless (IMPORTANT)
 let cached = global.mongoose
 
 if (!cached) {
   cached = global.mongoose = { conn: null, promise: null }
 }
 
-const connectToMongo = async () => {
+const MONGOURI = process.env.MONGOURI
+
+async function connectToMongo () {
   if (cached.conn) {
+    console.log('Using cached MongoDB connection ✅')
     return cached.conn
   }
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(process.env.MONGOURI, {
-      serverSelectionTimeoutMS: 30000,
-      connectTimeoutMS: 30000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 5,
-      minPoolSize: 1,
-      family: 4,
-      bufferCommands: false
-    })
+    cached.promise = mongoose
+      .connect(MONGOURI)
+      .then((mongooseInstance) => {
+        console.log('MongoDB connected ✅')
+        return mongooseInstance
+      })
+      .catch((err) => {
+        console.error('MongoDB connection failed ❌', err)
+        throw err
+      })
   }
 
-  try {
-    cached.conn = await cached.promise
-    console.log('✅ MongoDB connected (serverless)')
-    return cached.conn
-  } catch (error) {
-    cached.promise = null
-    console.error('❌ MongoDB connection error:', error)
-    throw error
-  }
+  cached.conn = await cached.promise
+  return cached.conn
 }
 
 module.exports = connectToMongo
