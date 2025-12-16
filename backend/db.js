@@ -1,11 +1,11 @@
 require('dotenv').config()
-const mongoose= require('mongoose')
+const mongoose = require('mongoose')
 
-const mongoURI=process.env.MONGOURI
-let cachedConnection=null;
+const mongoURI = process.env.MONGOURI
+let cachedConnection = null
 
-const connectToMongo=async ()=>{
-    if (cachedConnection) {
+const connectToMongo = async () => {
+  if (cachedConnection) {
     console.log('⚡ Using cached MongoDB connection')
     return cachedConnection
   }
@@ -27,6 +27,5 @@ const connectToMongo=async ()=>{
     console.error('❌ MongoDB connection error:', error)
   }
 }
-
 
 module.exports = connectToMongo
