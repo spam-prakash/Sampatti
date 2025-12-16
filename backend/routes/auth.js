@@ -109,7 +109,6 @@ router.get('/google', (req, res) => {
   res.redirect(`${rootUrl}?${qs.toString()}`)
 })
 
-// ROUTE: Handle Google OAuth Callback - FIXED
 // ROUTE: Handle Google OAuth Callback
 router.get('/google/callback', async (req, res) => {
   try {
