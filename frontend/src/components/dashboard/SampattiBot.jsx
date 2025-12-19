@@ -84,7 +84,7 @@ const SampattiBot = () => {
       }))
 
     try {
-      const response = await fetch('http://localhost:8000/api/ai/chat', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
