@@ -528,6 +528,8 @@ router.post('/login', [
 
     const authToken = generateAuthToken(user.id)
 
+    // console.log('FROM Login: ', user._id)
+
     res.json({
       success: true,
       authToken,

@@ -21,7 +21,7 @@ const Sidebar = () => {
 
   const bottomItems = [
     { path: '/profile', icon: FaCog, label: 'Settings' },
-    { path: '/help', icon: FaQuestionCircle, label: 'Help & Support' }
+    // { path: '/help', icon: FaQuestionCircle, label: 'Help & Support' }
   ]
 
   return (

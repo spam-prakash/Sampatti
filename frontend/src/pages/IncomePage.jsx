@@ -40,6 +40,7 @@ import Loader from '../components/common/Loader'
 import api from '../services/api'
 import { formatCurrency, formatDate } from '../utils/helpers'
 import toast from 'react-hot-toast'
+import SampattiBot from '../components/dashboard/SampattiBot'
 
 ChartJS.register(
   CategoryScale,
@@ -1745,6 +1746,7 @@ const IncomePage = () => {
           </div>
         </main>
       </div>
+      <SampattiBot />
     </div>
   )
 }

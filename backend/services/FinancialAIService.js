@@ -1,10 +1,61 @@
 // services/FinancialAIService.js
+const { GoogleGenerativeAI } = require('@google/generative-ai')
 class FinancialAIService {
   constructor () {
     this.categories = {
       income: ['Salary', 'Freelance', 'Business', 'Investment', 'Other'],
       expense: ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Healthcare', 'Education', 'Other'],
       goal: ['Car', 'House', 'Travel', 'Education', 'Emergency', 'Retirement', 'Other']
+    }
+
+    // Initialize Gemini AI
+    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+
+    // FIX: Use a currently available Gemini model
+    // Options: 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro-latest', etc.
+    this.model = this.genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-lite' // Use a current model name
+    })
+  }
+
+  // NEW: CHATBOT INTEGRATION
+  async chatWithUser (userMessage, userData, history = []) {
+    try {
+      const { incomes = [], expenses = [], goals = [] } = userData
+
+      const health = this.calculateFinancialHealth(incomes, expenses, goals)
+      const spending = this.analyzeSpendingPatterns(expenses)
+      const mIncome = this.calculateMonthlyIncome(incomes)
+      const mExpense = this.calculateMonthlyExpense(expenses)
+
+      const systemContext = `
+    You are 'Sampatti AI', a professional financial advisor.
+    User's Financial Profile:
+    - Health Score: ${health.score}/100 (Rating: ${health.rating})
+    - Monthly Income: ₹${mIncome}
+    - Monthly Expense: ₹${mExpense}
+    - Monthly Savings: ₹${mIncome - mExpense}
+    - Top Expense Category: ${spending.topCategory || 'None'}
+    - Active Goals: ${goals.length > 0 ? goals.map(g => g.title).join(', ') : 'None'}
+
+    Guidelines:
+    - Be concise and professional.
+    - Use specific numbers provided above.
+    - Use ₹ (Rupee symbol) for currency.
+  `
+
+      // FIX: Using generateContent directly is less prone to 404 errors than startChat
+      const prompt = `System: ${systemContext}\n\nUser Question: ${userMessage}`
+
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      return response.text()
+    } catch (error) {
+      console.error('GENAI ERROR:', error.message)
+      // Dynamic Fallback: Shows that data fetching IS working even if AI is down
+      const mIn = userData.incomes.reduce((s, i) => s + i.amount, 0)
+      const mOut = userData.expenses.reduce((s, e) => s + e.amount, 0)
+      return `I can see your ${userData.incomes.length} incomes (₹${mIn}) and ${userData.expenses.length} expenses (₹${mOut}), but I'm having trouble connecting to my AI core right now.`
     }
   }
 
@@ -243,28 +294,38 @@ class FinancialAIService {
   // HELPER METHODS
   calculateMonthlyIncome (incomes) {
     if (!incomes || incomes.length === 0) return 0
-
-    // Get last 30 days income
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
     const recentIncomes = incomes.filter(income =>
-      new Date(income.creditedOn || income.date) >= thirtyDaysAgo
+      new Date(income.date || income.createdAt) >= thirtyDaysAgo
     )
 
-    return recentIncomes.reduce((sum, income) => sum + income.amount, 0)
+    // If no recent data, just return total sum of all incomes so the AI has something to talk about
+    return recentIncomes.length > 0
+      ? recentIncomes.reduce((sum, income) => sum + income.amount, 0)
+      : incomes.reduce((sum, income) => sum + income.amount, 0)
   }
 
   calculateMonthlyExpense (expenses) {
     if (!expenses || expenses.length === 0) return 0
 
-    // Get last 30 days expenses
+    // 1. Define the 30-day window
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const recentExpenses = expenses.filter(expense =>
-      new Date(expense.date || expense.createdAt) >= thirtyDaysAgo
-    )
+    // 2. Filter expenses (Handling different possible date field names)
+    const recentExpenses = expenses.filter(expense => {
+      const expenseDate = new Date(expense.date || expense.createdAt || expense.dateTime)
+      return expenseDate >= thirtyDaysAgo
+    })
+
+    // 3. Logic Fallback:
+    // If recentExpenses is empty but expenses array has data,
+    // return the sum of all expenses so the AI has data to work with during the hackathon.
+    if (recentExpenses.length === 0 && expenses.length > 0) {
+      return expenses.reduce((sum, expense) => sum + expense.amount, 0)
+    }
 
     return recentExpenses.reduce((sum, expense) => sum + expense.amount, 0)
   }

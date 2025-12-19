@@ -157,9 +157,9 @@ router.get('/predict-savings', fetchuser, async (req, res) => {
         expense: monthlyExpense * 0.98, // 2% decrease prediction
         savings: (monthlyIncome * 1.02) - (monthlyExpense * 0.98)
       },
-      suggestion: currentSavings > 0 
-                ? 'Keep up the good savings habit!' 
-                : 'Try to reduce expenses by 10% next month'
+      suggestion: currentSavings > 0
+        ? 'Keep up the good savings habit!'
+        : 'Try to reduce expenses by 10% next month'
     }
 
     res.json({
@@ -171,6 +171,55 @@ router.get('/predict-savings', fetchuser, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal Server Error'
+    })
+  }
+})
+
+// ROUTE 7: AI CHATBOT (Personalized)
+router.post('/chat', fetchuser, async (req, res) => {
+  try {
+    const userId = req.user.id
+    // console.log('FROM CHAT: ', userId)
+    const { message, chatHistory } = req.body
+
+    // 1. Fetch data - Try 'user' instead of 'userId'
+    // Most MERN apps use 'user: req.user.id'
+    const [incomes, expenses, goals] = await Promise.all([
+      Income.find({ userId }),
+      Expense.find({ userId }),
+      Goal.find({ userId })
+    ])
+
+    // ADD THIS LOG: It will tell us if the DB is actually returning data
+    // console.log('RAW DATA CHECK:', {
+    //   userId,
+    //   incomeSample: incomes.length,
+    //   expenseSample: expenses.length
+    // })
+
+    // DEBUG LOG: Check your terminal after saving this!
+    // console.log(`Backend found ${incomes.length} incomes and ${expenses.length} expenses for UID: ${userId}`)
+
+    // 2. Ensure chatHistory is an array
+    const validHistory = Array.isArray(chatHistory) ? chatHistory : []
+
+    // 3. Call AI Service
+    const aiResponse = await aiService.chatWithUser(
+      message,
+      { incomes, expenses, goals },
+      validHistory
+    )
+
+    res.json({
+      success: true,
+      reply: aiResponse
+    })
+  } catch (error) {
+    console.error('DETAILED ROUTE ERROR:', error)
+    res.status(500).json({
+      success: false,
+      message: 'AI is having a moment...',
+      error: error.message
     })
   }
 })
