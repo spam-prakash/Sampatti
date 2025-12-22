@@ -15,6 +15,8 @@ import IncomePage from './pages/IncomePage.jsx'
 import ExpensePage from './pages/ExpensePage.jsx'
 import GoalsPage from './pages/GoalsPage.jsx'
 import GoogleAuthHandler from './components/auth/GoogleAuthHandler.jsx'
+import AboutProjectPage from './pages/AboutProjectPage.jsx'
+import AboutDevelopersPage from './pages/AboutDevelopersPage.jsx'
 
 function App () {
   return (
@@ -25,16 +27,16 @@ function App () {
             <Toaster
               position='top-right'
               containerStyle={{ top: 72 }}
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: '#363636',
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 16px'
-                  },
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: '#363636',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px'
+                },
                 action: (t) => (
                   <button
                     onClick={() => toast.dismiss(t.id)}
@@ -56,21 +58,21 @@ function App () {
                 ),
                 success: {
                   duration: 3000,
-                    style: {
-                      background: '#10b981',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }
+                  style: {
+                    background: '#10b981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }
                 },
                 error: {
                   duration: 4000,
-                    style: {
-                      background: '#ef4444',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }
+                  style: {
+                    background: '#ef4444',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }
                 }
               }}
             />
@@ -125,6 +127,22 @@ function App () {
                 element={
                   <ProtectedRoute>
                     <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path='/about-project'
+                element={
+                  <ProtectedRoute>
+                    <AboutProjectPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path='/about-developer'
+                element={
+                  <ProtectedRoute>
+                    <AboutDevelopersPage />
                   </ProtectedRoute>
                 }
               />

@@ -677,6 +677,9 @@ const AIInsightsModal = ({ showAIInsights, setShowAIInsights, aiInsights, loadin
 // Main GoalsPage Component
 const GoalsPage = () => {
   const { user } = useAuth()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
+  const closeSidebar = () => setIsSidebarOpen(false)
   const [loading, setLoading] = useState(true)
   const [goals, setGoals] = useState([])
   const [categoryData, setCategoryData] = useState(null)
@@ -1071,314 +1074,192 @@ const GoalsPage = () => {
   }
 
   return (
-    <div className='min-h-screen bg-gray-50'>
-      <Sidebar />
-      <div className='md:pl-64 flex flex-col'>
-        <Header />
-        <main className='flex-1 p-6'>
-          <div className='max-w-7xl mx-auto'>
-            {/* Header with AI Button */}
-            <div className='flex items-center justify-between mb-8'>
+    <div className='flex h-screen bg-gray-50 overflow-hidden'>
+      <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+      <div className='flex-1 flex flex-col min-w-0 relative overflow-y-auto'>
+        <Header onMenuClick={toggleSidebar} />
+        <main className='flex-1 p-4 md:p-8'>
+          <div className='max-w-7xl mx-auto space-y-8'>
+
+            {/* Header with AI Button - Responsive layout */}
+            <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
               <div>
-                <h1 className='text-3xl font-bold text-gray-900'>Financial Goals</h1>
-                <p className='text-gray-600 mt-1'>Set and track your financial milestones</p>
+                <h1 className='text-2xl md:text-3xl font-bold text-gray-900 tracking-tight'>Financial Goals</h1>
+                <p className='text-gray-500 text-sm mt-1'>Set and track your financial milestones</p>
               </div>
-              <div className='flex gap-3'>
+              <div className='flex gap-2 md:gap-3'>
                 <button
                   onClick={fetchAIInsights}
-                  className='btn-secondary flex items-center gap-2'
+                  className='flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2 text-sm font-semibold shadow-sm'
                   disabled={loadingAI}
                   type='button'
                 >
-                  {loadingAI
-                    ? (
-                      <FaSpinner className='w-4 h-4 animate-spin' />
-                      )
-                    : (
-                      <FaRobot className='w-4 h-4' />
-                      )}
+                  {loadingAI ? <FaSpinner className='w-4 h-4 animate-spin' /> : <FaRobot className='w-4 h-4 text-blue-600' />}
                   AI Insights
                 </button>
                 <button
                   onClick={handleAddGoal}
-                  className='btn-primary flex items-center gap-2'
+                  className='flex-1 sm:flex-none px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 text-sm font-semibold shadow-md shadow-blue-200'
                   type='button'
                 >
-                  <FaPlus />
+                  <FaPlus className='w-3 h-3' />
                   Create Goal
                 </button>
               </div>
             </div>
 
-            {/* Stats */}
-            <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-8'>
-              <div className='card'>
-                <div className='flex items-center justify-between'>
-                  <div>
-                    <p className='text-gray-600 text-sm'>Total Goals</p>
-                    <p className='text-2xl font-bold text-blue-600 mt-1'>{goals.length}</p>
+            {/* Stats Grid - Fixed columns for mobile/tablet/desktop */}
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6'>
+              {[
+                { label: 'Total Goals', val: goals.length, icon: FaBullseye, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { label: 'Completed', val: goals.filter((g) => g.isCompleted).length, icon: FaCheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
+                { label: 'In Progress', val: goals.filter((g) => !g.isCompleted && (g.progress || 0) < 100).length, icon: FaHourglass, color: 'text-orange-600', bg: 'bg-orange-50' },
+                { label: 'Total Target', val: formatCurrency(goals.reduce((sum, g) => sum + g.targetAmount, 0)), icon: FaWallet, color: 'text-purple-600', bg: 'bg-purple-50' }
+              ].map((stat, i) => (
+                <div key={i} className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between'>
+                  <div className='min-w-0'>
+                    <p className='text-gray-500 text-xs font-bold uppercase tracking-wider'>{stat.label}</p>
+                    <p className={`text-xl md:text-2xl font-bold mt-1 truncate ${stat.color}`}>{stat.val}</p>
                   </div>
-                  <FaBullseye className='w-10 h-10 text-blue-400' />
-                </div>
-              </div>
-
-              <div className='card'>
-                <div className='flex items-center justify-between'>
-                  <div>
-                    <p className='text-gray-600 text-sm'>Completed</p>
-                    <p className='text-2xl font-bold text-green-600 mt-1'>
-                      {goals.filter((g) => g.isCompleted).length}
-                    </p>
+                  <div className={`${stat.bg} p-3 rounded-xl`}>
+                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
                   </div>
-                  <FaCheckCircle className='w-10 h-10 text-green-400' />
                 </div>
-              </div>
-
-              <div className='card'>
-                <div className='flex items-center justify-between'>
-                  <div>
-                    <p className='text-gray-600 text-sm'>In Progress</p>
-                    <p className='text-2xl font-bold text-orange-600 mt-1'>
-                      {goals.filter((g) => !g.isCompleted && (g.progress || 0) < 100).length}
-                    </p>
-                  </div>
-                  <FaHourglass className='w-10 h-10 text-orange-400' />
-                </div>
-              </div>
-
-              <div className='card'>
-                <div>
-                  <p className='text-gray-600 text-sm'>Total Target</p>
-                  <p className='text-2xl font-bold text-purple-600 mt-1'>
-                    {formatCurrency(goals.reduce((sum, g) => sum + g.targetAmount, 0))}
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* Charts */}
-            <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8'>
-              {/* Goals by Category */}
-              <div className='card'>
-                <h3 className='text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2'>
-                  <FaChartPie />
-                  Goals by Category
+            {/* Charts Section */}
+            <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
+              <div className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm'>
+                <h3 className='text-lg font-bold text-gray-800 mb-6 flex items-center gap-2'>
+                  <FaChartPie className='text-blue-500' /> Goals by Category
                 </h3>
-                {categoryData && categoryData.labels.length > 0
-                  ? (
-                    <div className='relative h-80'>
-                      <Pie
-                        data={categoryData}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: {
-                            legend: {
-                              position: 'bottom',
-                              labels: {
-                                padding: 15,
-                                font: { size: 12 }
-                              }
-                            }
-                          }
-                        }}
-                      />
-                    </div>
-                    )
-                  : (
-                    <p className='text-gray-500 text-center py-10'>No goals created yet</p>
-                    )}
+                <div className='h-72'>
+                  {categoryData && categoryData.labels.length > 0
+                    ? (
+                      <Pie data={categoryData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }} />
+                      )
+                    : (
+                      <div className='flex items-center justify-center h-full text-gray-400 italic'>No data available</div>
+                      )}
+                </div>
               </div>
 
-              {/* Progress Distribution */}
-              <div className='card'>
-                <h3 className='text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2'>
-                  <FaChartLine />
-                  Progress Distribution
+              <div className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm'>
+                <h3 className='text-lg font-bold text-gray-800 mb-6 flex items-center gap-2'>
+                  <FaChartLine className='text-green-500' /> Progress Distribution
                 </h3>
-                {progressData && progressData.labels.length > 0
-                  ? (
-                    <div className='relative h-80'>
-                      <Pie
-                        data={progressData}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: {
-                            legend: {
-                              position: 'bottom',
-                              labels: {
-                                padding: 15,
-                                font: { size: 12 }
-                              }
-                            }
-                          }
-                        }}
-                      />
-                    </div>
-                    )
-                  : (
-                    <p className='text-gray-500 text-center py-10'>No goals created yet</p>
-                    )}
+                <div className='h-72'>
+                  {progressData && progressData.labels.length > 0
+                    ? (
+                      <Pie data={progressData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }} />
+                      )
+                    : (
+                      <div className='flex items-center justify-center h-full text-gray-400 italic'>No data available</div>
+                      )}
+                </div>
               </div>
             </div>
 
             {/* Timeline Chart */}
-            <div className='card mb-8'>
-              <h3 className='text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2'>
-                <FaChartLine />
-                Goals Timeline
+            <div className='bg-white p-6 rounded-2xl border border-gray-100 shadow-sm'>
+              <h3 className='text-lg font-bold text-gray-800 mb-6 flex items-center gap-2'>
+                <FaChartLine className='text-purple-500' /> Goals Timeline
               </h3>
-              {timelineData && timelineData.labels.length > 0
-                ? (
-                  <div className='relative h-80'>
-                    <Line
-                      data={timelineData}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            display: true,
-                            labels: {
-                              font: { size: 12 }
-                            }
-                          }
-                        },
-                        scales: {
-                          y: {
-                            beginAtZero: true
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  )
-                : (
-                  <p className='text-gray-500 text-center py-10'>No goals timeline data</p>
-                  )}
+              <div className='h-80'>
+                {timelineData && timelineData.labels.length > 0
+                  ? (
+                    <Line data={timelineData} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} />
+                    )
+                  : (
+                    <div className='flex items-center justify-center h-full text-gray-400 italic'>No timeline data</div>
+                    )}
+              </div>
             </div>
 
-            {/* Goals List */}
-            <div className='space-y-4'>
-              <h3 className='text-lg font-semibold text-gray-900'>Your Goals</h3>
+            {/* Goals List Grid */}
+            <div className='space-y-6'>
+              <h3 className='text-xl font-bold text-gray-800'>Your Active Milestones</h3>
               {goals.length > 0
                 ? (
-                  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+                  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
                     {goals.map((goal) => {
                       const status = getGoalStatus(goal)
                       const progress = goal.progress || ((goal.currentAmount || 0) / (goal.targetAmount || 1)) * 100
-                      const daysLeft = Math.ceil(
-                        (new Date(goal.deadline) - new Date()) / (1000 * 60 * 60 * 24)
-                      )
+                      const daysLeft = Math.ceil((new Date(goal.deadline) - new Date()) / (1000 * 60 * 60 * 24))
 
                       return (
-                        <div key={goal._id} className='card hover:shadow-lg transition group'>
-                          <div className='flex items-start justify-between mb-3'>
-                            <div className='flex-1'>
-                              <h4 className='font-semibold text-gray-900'>{goal.title}</h4>
-                              <div className='flex items-center gap-2 mt-1'>
-                                <span className='text-sm text-gray-600'>{goal.category}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${status.bgColor} ${status.color}`}>
-                                  {status.text}
-                                </span>
-                              </div>
+                        <div key={goal._id} className='bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group overflow-hidden'>
+                        <div className='p-6'>
+                          <div className='flex items-start justify-between mb-4'>
+                            <div className='min-w-0'>
+                              <h4 className='font-bold text-gray-800 truncate'>{goal.title}</h4>
+                              <span className='text-xs text-gray-500 font-medium'>{goal.category}</span>
                             </div>
-                            <div className='opacity-0 group-hover:opacity-100 transition-opacity flex gap-1'>
-                              <button
-                                onClick={() => handleEditGoal(goal)}
-                                className='p-1 text-gray-600 hover:text-primary-600'
-                                title='Edit'
-                                type='button'
-                              >
-                                <FaEdit className='w-4 h-4' />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteGoal(goal._id)}
-                                className='p-1 text-gray-600 hover:text-red-600'
-                                title='Delete'
-                                type='button'
-                              >
-                                <FaTrash className='w-4 h-4' />
-                              </button>
+                            <div className='flex items-center gap-2'>
+                              <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-lg ${status.bgColor} ${status.color}`}>
+                                {status.text}
+                              </span>
                             </div>
                           </div>
 
-                          <div className='space-y-3'>
+                          <div className='space-y-4'>
                             <div>
-                              <div className='flex justify-between text-sm mb-1'>
-                                <span className='text-gray-600'>Progress</span>
-                                <span className='font-medium'>{progress.toFixed(1)}%</span>
+                              <div className='flex justify-between text-xs mb-2 font-bold'>
+                                <span className='text-gray-400'>Progress</span>
+                                <span className='text-blue-600'>{progress.toFixed(1)}%</span>
                               </div>
-                              <div className='w-full bg-gray-200 rounded-full h-2'>
+                              <div className='w-full bg-gray-100 rounded-full h-2'>
                                 <div
-                                  className={`h-2 rounded-full transition-all ${
-                                  progress === 100 ? 'bg-green-500' : 'bg-blue-500'
-                                }`}
-                                  style={{ width: `${Math.min(progress, 100)}%` }}
-                                />
+                    className={`h-2 rounded-full transition-all duration-500 ${progress === 100 ? 'bg-green-500' : 'bg-blue-600'}`}
+                    style={{ width: `${Math.min(progress, 100)}%` }}
+                  />
                               </div>
                             </div>
 
-                            <div className='grid grid-cols-2 gap-2 text-sm'>
-                              <div className='bg-gray-50 p-2 rounded'>
-                                <p className='text-gray-600'>Current</p>
-                                <p className='font-semibold text-gray-900'>
-                                  {formatCurrency(goal.currentAmount)}
-                                </p>
+                            <div className='grid grid-cols-2 gap-3'>
+                              <div className='bg-gray-50 p-3 rounded-xl'>
+                                <p className='text-[10px] text-gray-400 font-bold uppercase'>Saved</p>
+                                <p className='text-sm font-bold text-gray-700'>{formatCurrency(goal.currentAmount)}</p>
                               </div>
-                              <div className='bg-gray-50 p-2 rounded'>
-                                <p className='text-gray-600'>Target</p>
-                                <p className='font-semibold text-gray-900'>
-                                  {formatCurrency(goal.targetAmount)}
-                                </p>
+                              <div className='bg-gray-50 p-3 rounded-xl'>
+                                <p className='text-[10px] text-gray-400 font-bold uppercase'>Target</p>
+                                <p className='text-sm font-bold text-gray-700'>{formatCurrency(goal.targetAmount)}</p>
                               </div>
                             </div>
 
-                            <div className='flex items-center gap-1 text-sm text-gray-600'>
-                              <FaCalendarAlt className='w-3 h-3' />
-                              {daysLeft > 0 ? `${daysLeft} days left` : 'Overdue'}
+                            <div className='flex items-center gap-2 text-xs font-medium text-gray-500'>
+                              <FaCalendarAlt className={daysLeft > 0 ? 'text-blue-500' : 'text-red-500'} />
+                              {daysLeft > 0 ? `${daysLeft} days remaining` : 'Goal Overdue'}
                             </div>
 
                             <div className='flex gap-2 pt-2'>
-                              {!goal.isCompleted && progress < 100 && (
-                                <button
-                                  onClick={() => handleAddSavingsModal(goal)}
-                                  className='flex-1 text-sm py-2 px-3 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition font-medium flex items-center justify-center gap-1'
-                                  type='button'
-                                >
-                                  <FaWallet className='w-3 h-3' />
-                                  Add Savings
-                                </button>
-                              )}
                               {!goal.isCompleted && (
                                 <button
-                                  onClick={() => handleCompleteGoalModal(goal)}
-                                  className='flex-1 text-sm py-2 px-3 bg-green-50 text-green-600 rounded hover:bg-green-100 transition font-medium flex items-center justify-center gap-1'
-                                  type='button'
-                                >
-                                  <FaCheckCircle className='w-3 h-3' />
-                                  Complete
-                                </button>
+                    onClick={() => handleAddSavingsModal(goal)}
+                    className='flex-1 py-2 text-xs font-bold bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2'
+                  >
+                    <FaWallet size={12} /> Add Savings
+                  </button>
                               )}
+                              <div className='flex gap-2'>
+                                <button onClick={() => handleEditGoal(goal)} className='p-2 text-gray-400 hover:text-blue-600 transition-colors'><FaEdit size={14} /></button>
+                                <button onClick={() => handleDeleteGoal(goal._id)} className='p-2 text-gray-400 hover:text-red-600 transition-colors'><FaTrash size={14} /></button>
+                              </div>
                             </div>
                           </div>
                         </div>
+                      </div>
                       )
                     })}
                   </div>
                   )
                 : (
-                  <div className='card text-center py-12'>
-                    <FaBullseye className='w-12 h-12 text-gray-400 mx-auto mb-4' />
-                    <p className='text-gray-600 mb-4'>No goals created yet.</p>
-                    <button
-                      onClick={handleAddGoal}
-                      className='btn-primary inline-flex items-center gap-2'
-                      type='button'
-                    >
-                      <FaPlus />
-                      Create Your First Goal
+                  <div className='bg-white rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center'>
+                    <FaBullseye className='w-12 h-12 text-gray-300 mx-auto mb-4' />
+                    <p className='text-gray-500 font-medium'>No goals found. Ready to start saving?</p>
+                    <button onClick={handleAddGoal} className='mt-4 text-blue-600 font-bold hover:underline text-sm'>
+                      Create your first goal now
                     </button>
                   </div>
                   )}
@@ -1387,7 +1268,7 @@ const GoalsPage = () => {
         </main>
       </div>
 
-      {/* Modals */}
+      {/* Modals & Bots */}
       <GoalModal
         showModal={showModal}
         setShowModal={setShowModal}

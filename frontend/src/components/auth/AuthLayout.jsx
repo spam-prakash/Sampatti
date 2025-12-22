@@ -1,109 +1,70 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { FcMoneyTransfer } from 'react-icons/fc'
-import { FaPiggyBank, FaChartLine, FaShieldAlt } from 'react-icons/fa'
 
 const AuthLayout = ({ children, title, subtitle, type = 'login' }) => {
-  const features = [
-    { icon: <FaPiggyBank />, text: 'Smart Savings' },
-    { icon: <FaChartLine />, text: 'Track Expenses' },
-    { icon: <FaShieldAlt />, text: 'Bank-level Security' }
-  ]
-
-  const gradientClass = type === 'login'
-    ? 'from-blue-50 via-indigo-50 to-purple-50'
-    : 'from-emerald-50 via-teal-50 to-cyan-50'
+  const isLogin = type === 'login'
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${gradientClass} flex flex-col lg:flex-row items-center justify-center p-4 md:p-6 lg:p-8`}>
-      {/* Left side - Brand & Features */}
-      <div className='w-full lg:w-1/2 max-w-lg mb-8 lg:mb-0 lg:mr-12 xl:mr-16'>
-        <div className='text-center lg:text-left'>
-          <div className='inline-flex items-center gap-3 mb-6'>
-            <div className='w-14 h-14 bg-white rounded-2xl shadow-lg flex items-center justify-center'>
-              <FcMoneyTransfer className='w-9 h-9' />
-            </div>
-            <div>
-              <h1 className='text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'>
-                Sampatti
-              </h1>
-              <p className='text-gray-600 font-medium'>Smart Financial Management</p>
-            </div>
-          </div>
+    /* h-[100dvh] ensures it fits perfectly even with mobile browser toolbars */
+    /* overflow-hidden prevents the body from scrolling */
+    <div className='h-[100dvh] w-full bg-[#F3F7FF] flex items-center justify-center overflow-hidden p-4'>
 
-          <h2 className='text-3xl lg:text-4xl font-bold text-gray-900 mb-4 leading-tight'>
-            Take Control of Your <span className='text-blue-600'>Finances</span>
+      {/* Background soft blurs - Scaled down to prevent "fuzziness" */}
+      <div className='absolute top-[-10%] left-[-5%] w-[300px] h-[300px] bg-blue-200/30 rounded-full blur-[100px] pointer-events-none' />
+      <div className='absolute bottom-[-10%] right-[-5%] w-[300px] h-[300px] bg-indigo-200/30 rounded-full blur-[100px] pointer-events-none' />
+
+      <div className='relative z-10 w-full max-w-5xl flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16'>
+
+        {/* Left Branding - Compacted for better balance */}
+        <div className='hidden lg:flex flex-col space-y-3 max-w-sm'>
+          <div className='flex items-center gap-3 mb-2'>
+            <div className='w-11 h-11 bg-white rounded-2xl shadow-sm flex items-center justify-center shrink-0 border border-white/50'>
+              <FcMoneyTransfer className='w-7 h-7' />
+            </div>
+            <span className='text-xl font-black text-gray-900 tracking-tight'>Sampatti</span>
+          </div>
+          <h2 className='text-4xl xl:text-5xl font-extrabold text-gray-900 leading-tight'>
+            Master your money with <span className='text-blue-600'>intelligence.</span>
           </h2>
-          <p className='text-gray-600 text-lg mb-8 max-w-md'>
-            Join thousands who've transformed their financial health with our intuitive platform.
+          <p className='text-gray-500 text-sm xl:text-base leading-relaxed'>
+            Track, save, and grow your wealth with our all-in-one financial intelligence platform.
           </p>
-
-          {/* Features */}
-          <div className='space-y-4 mb-8'>
-            {features.map((feature, index) => (
-              <div key={index} className='flex items-center gap-3'>
-                <div className='w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-blue-600'>
-                  {feature.icon}
-                </div>
-                <span className='text-gray-700 font-medium'>{feature.text}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Testimonial */}
-          <div className='bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-white/50'>
-            <p className='text-gray-700 italic mb-3'>
-              "Sampatti helped me save 30% more in just 3 months. The insights are game-changing!"
-            </p>
-            <div className='flex items-center gap-3'>
-              <div className='w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full' />
-              <div>
-                <p className='font-semibold text-gray-900'>Priya Sharma</p>
-                <p className='text-sm text-gray-600'>Marketing Executive</p>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
 
-      {/* Right side - Auth Form */}
-      <div className='w-full max-w-md lg:max-w-lg'>
-        <div className='bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-6 md:p-8 border border-white/50'>
-          {/* Form Header */}
-          <div className='mb-8'>
-            <div className='inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl mb-4'>
-              <div className='w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center'>
-                <FcMoneyTransfer className='w-6 h-6' />
+        {/* Auth Card - Height Optimized */}
+        <div className='w-full max-w-[420px]'>
+          <div className='bg-white rounded-[2rem] shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-white p-6 sm:p-8 flex flex-col'>
+
+            <header className='mb-5'>
+              <div className='lg:hidden flex justify-center mb-4'>
+                <FcMoneyTransfer className='w-10 h-10' />
               </div>
+              <h2 className='text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight text-center lg:text-left'>{title}</h2>
+              {subtitle && (
+                <p className='text-gray-500 mt-1 text-xs sm:text-sm font-medium text-center lg:text-left'>
+                  {subtitle}
+                </p>
+              )}
+            </header>
+
+            {/* Content area */}
+            <div className='w-full overflow-hidden'>
+              {children}
             </div>
-            <h2 className='text-2xl md:text-3xl font-bold text-gray-900'>{title}</h2>
-            {subtitle && (
-              <p className='text-gray-600 mt-2 text-sm md:text-base'>{subtitle}</p>
-            )}
-          </div>
 
-          {/* Form Content */}
-          <div className='mb-6'>
-            {children}
-          </div>
-
-          {/* Footer Links */}
-          <div className='pt-6 border-t border-gray-200'>
-            <p className='text-gray-600 text-center text-sm'>
-              {type === 'login' ? "Don't have an account? " : 'Already have an account? '}
-              <Link
-                to={type === 'login' ? '/signup' : '/login'}
-                className='font-semibold text-blue-600 hover:text-blue-700 transition-colors duration-200'
-              >
-                {type === 'login' ? 'Sign up for free' : 'Sign in'}
-              </Link>
-            </p>
-            <p className='text-xs text-gray-500 text-center mt-4'>
-              By continuing, you agree to our{' '}
-              <Link to='/terms' className='text-blue-500 hover:underline'>Terms</Link>
-              {' '}and{' '}
-              <Link to='/privacy' className='text-blue-500 hover:underline'>Privacy Policy</Link>
-            </p>
+            {/* Footer - Reduced margin to save space */}
+            <footer className='mt-6 pt-5 border-t border-gray-50 text-center'>
+              <p className='text-gray-500 text-xs sm:text-sm'>
+                {isLogin ? 'New to Sampatti?' : 'Already have an account?'}{' '}
+                <Link
+                  to={isLogin ? '/signup' : '/login'}
+                  className='font-bold text-blue-600 hover:text-blue-700 transition-colors inline-block ml-1'
+                >
+                  {isLogin ? 'Create account' : 'Sign in'}
+                </Link>
+              </p>
+            </footer>
           </div>
         </div>
       </div>

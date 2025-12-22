@@ -7,7 +7,9 @@ import {
   FaRobot,
   FaSync,
   FaArrowUp,
-  FaTrophy
+  FaTrophy,
+  FaChevronDown,
+  FaChevronUp
 } from 'react-icons/fa'
 import Loader from '../common/Loader'
 import userService from '../../services/userService'
@@ -64,173 +66,151 @@ const AIInsightsCard = ({ insights, healthScore }) => {
   }
 
   const getHealthBgColor = (score) => {
-    if (score >= 80) return 'bg-green-50'
-    if (score >= 60) return 'bg-blue-50'
-    if (score >= 40) return 'bg-yellow-50'
-    return 'bg-red-50'
+    if (score >= 80) return 'bg-green-50/50'
+    if (score >= 60) return 'bg-blue-50/50'
+    if (score >= 40) return 'bg-yellow-50/50'
+    return 'bg-red-50/50'
   }
 
-  // Sample insights if none available
   const defaultInsights = [
     '💡 You\'re spending 35% on food. Consider meal planning to reduce costs.',
     '🎯 You\'re 45% towards your vacation goal. Keep it up!',
-    '⚠️ Your essential expenses are 40% of income. Maintain this ratio.',
-    '📈 Your spending has decreased by 12% this month compared to last month.',
-    '🏦 Consider building an emergency fund covering 3-6 months of expenses.'
+    '⚠️ Your essential expenses are 40% of income. Maintain this ratio.'
   ]
 
   const displayedInsights = (aiData?.insights || aiData?.suggestions || insights || defaultInsights).slice(0, 3)
   const finalHealthScore = healthScore || aiData?.score || aiData?.financialHealth?.score || 75
 
   return (
-    <div className={`card mb-8 ${getHealthBgColor(finalHealthScore)}`}>
+    <div className={`rounded-2xl p-5 md:p-6 mb-6 border transition-all duration-300 ${getHealthBgColor(finalHealthScore)} border-gray-100 shadow-sm`}>
+      {/* Header */}
       <div className='flex items-center justify-between mb-6'>
-        <div className='flex items-center'>
-          <FaRobot className='w-6 h-6 text-primary-600 mr-3' />
-          <h3 className='text-lg font-semibold text-gray-900'>AI Financial Insights</h3>
+        <div className='flex items-center gap-3'>
+          <div className='p-2 bg-white rounded-lg shadow-sm'>
+            <FaRobot className='w-5 h-5 text-blue-600' />
+          </div>
+          <h3 className='text-base md:text-lg font-bold text-gray-900 tracking-tight'>AI Financial Insights</h3>
         </div>
         <button
           onClick={handleRefreshInsights}
           disabled={loading}
-          className='flex items-center text-sm text-primary-600 hover:text-primary-700 font-medium transition'
+          className='flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95 disabled:opacity-50'
         >
-          <FaSync className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <FaSync className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
           {loading ? 'Analyzing...' : 'Refresh'}
         </button>
       </div>
 
-      {loading && <Loader size='sm' />}
+      {loading && (
+        <div className='py-12 flex flex-col items-center gap-3'>
+          <Loader size='md' />
+          <p className='text-xs text-gray-400 font-medium animate-pulse'>Gathering financial intelligence...</p>
+        </div>
+      )}
 
       {!loading && (
-        <>
-          {/* Financial Health Score */}
-          <div className='mb-6 bg-white p-4 rounded-lg'>
-            <div className='flex items-center justify-between mb-3'>
+        <div className='space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500'>
+          {/* Financial Health Score Box */}
+          <div className='bg-white p-5 rounded-xl shadow-sm border border-white'>
+            <div className='flex items-end justify-between mb-4'>
               <div>
-                <h4 className='font-semibold text-gray-900'>Financial Health Score</h4>
-                <p className='text-xs text-gray-600'>AI-powered assessment</p>
+                <h4 className='text-sm font-bold text-gray-800 mb-0.5'>Health Score</h4>
+                <div className={`text-xs font-semibold px-2 py-0.5 rounded-full inline-block ${getHealthBgColor(finalHealthScore)} ${getHealthColor(finalHealthScore)}`}>
+                  {getHealthText(finalHealthScore)}
+                </div>
               </div>
               <div className='text-right'>
-                <div className={`text-3xl font-bold ${getHealthColor(finalHealthScore)}`}>
-                  {finalHealthScore}/100
-                </div>
-                <div className='text-xs text-gray-600'>{getHealthText(finalHealthScore)}</div>
+                <span className={`text-3xl md:text-4xl font-black ${getHealthColor(finalHealthScore)}`}>
+                  {finalHealthScore}
+                </span>
+                <span className='text-gray-400 font-bold text-sm'>/100</span>
               </div>
             </div>
 
-            {/* Progress bar */}
-            <div className='w-full bg-gray-200 rounded-full h-3'>
+            <div className='relative w-full bg-gray-100 rounded-full h-2.5 overflow-hidden'>
               <div
-                className={`h-3 rounded-full transition-all ${
+                className={`h-full rounded-full transition-all duration-1000 ease-out ${
                   finalHealthScore >= 80
-                    ? 'bg-green-600'
-                    : finalHealthScore >= 60
-                    ? 'bg-blue-600'
-                    : finalHealthScore >= 40
-                    ? 'bg-yellow-600'
-                    : 'bg-red-600'
+? 'bg-green-500' 
+                  : finalHealthScore >= 60
+? 'bg-blue-500' 
+                  : finalHealthScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'
                 }`}
                 style={{ width: `${Math.min(finalHealthScore, 100)}%` }}
               />
             </div>
           </div>
 
-          {/* Key Metrics */}
-          {aiData?.userProfile && (
-            <div className='grid grid-cols-3 gap-2 mb-6'>
-              <div className='bg-white p-3 rounded-lg text-center'>
-                <p className='text-xs text-gray-600'>Monthly Income</p>
-                <p className='text-sm font-semibold text-gray-900'>
-                  ₹{(aiData.userProfile.monthlyIncome || 0).toLocaleString()}
-                </p>
-              </div>
-              <div className='bg-white p-3 rounded-lg text-center'>
-                <p className='text-xs text-gray-600'>Savings Rate</p>
-                <p className='text-sm font-semibold text-green-600'>
-                  {aiData.savingsRate || '0'}%
-                </p>
-              </div>
-              <div className='bg-white p-3 rounded-lg text-center'>
-                <p className='text-xs text-gray-600'>Top Category</p>
-                <p className='text-sm font-semibold text-gray-900'>
-                  {aiData.topCategory || 'N/A'}
-                </p>
-              </div>
+          {/* Quick Metrics Grid */}
+          <div className='grid grid-cols-2 md:grid-cols-3 gap-3'>
+            <div className='bg-white/60 p-3 rounded-xl border border-white/50'>
+              <p className='text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1'>Monthly Income</p>
+              <p className='text-sm font-bold text-gray-900'>
+                ₹{(aiData?.userProfile?.monthlyIncome || 0).toLocaleString()}
+              </p>
             </div>
-          )}
+            <div className='bg-white/60 p-3 rounded-xl border border-white/50'>
+              <p className='text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1'>Savings Rate</p>
+              <p className='text-sm font-bold text-green-600'>
+                {aiData?.savingsRate || '0'}%
+              </p>
+            </div>
+            <div className='bg-white/60 p-3 rounded-xl border border-white/50 col-span-2 md:col-span-1'>
+              <p className='text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1'>Top Spending</p>
+              <p className='text-sm font-bold text-gray-900 truncate'>
+                {aiData?.topCategory || 'Calculating...'}
+              </p>
+            </div>
+          </div>
 
-          {/* Insights List */}
-          <div className='space-y-3 mb-6'>
-            <h4 className='font-semibold text-gray-900 flex items-center gap-2'>
-              <FaLightbulb className='w-4 h-4' />
-              AI Recommendations
-            </h4>
-            {displayedInsights && displayedInsights.length > 0
-              ? (
-                  displayedInsights.map((insight, index) => (
-                    <div
-                      key={index}
-                      className='p-3 bg-white rounded-lg border border-gray-200 hover:border-primary-300 transition-colors'
-                    >
-                      <div className='flex items-start gap-2'>
-                        <div className='flex-shrink-0 mt-0.5'>
-                          {insight.toLowerCase().includes('reduce') ||
-                      insight.toLowerCase().includes('urgent') ||
-                      insight.toLowerCase().includes('⚠️')
-                            ? (
-                          <FaExclamationTriangle className='w-4 h-4 text-orange-500' />
-                              )
-                            : insight.toLowerCase().includes('spending') ||
-                        insight.toLowerCase().includes('💡')
-                              ? (
-                            <FaChartPie className='w-4 h-4 text-blue-500' />
-                                )
-                              : insight.toLowerCase().includes('goal') ||
-                        insight.toLowerCase().includes('🎯')
-                                ? (
-                              <FaBullseye className='w-4 h-4 text-purple-500' />
-                                  )
-                                : insight.toLowerCase().includes('trend') ||
-                        insight.toLowerCase().includes('📈')
-                                  ? (
-                                <FaArrowUp className='w-4 h-4 text-green-500' />
-                                    )
-                                  : (
-                                <FaTrophy className='w-4 h-4 text-yellow-500' />
-                                    )}
-                        </div>
-                        <p className='text-sm text-gray-800 flex-1 leading-relaxed'>
-                          {expandedInsight === index
-                            ? insight
-                            : insight.length > 90
-                              ? `${insight.substring(0, 90)}...`
-                              : insight}
-                        </p>
-                      </div>
+          {/* Recommendations */}
+          <div className='space-y-3'>
+            <h4 className='text-xs font-bold text-gray-500 uppercase tracking-widest pl-1'>AI Recommendations</h4>
+            {displayedInsights.map((insight, index) => {
+              const isExpanded = expandedInsight === index
+              return (
+                <div
+                  key={index}
+                  onClick={() => setExpandedInsight(isExpanded ? null : index)}
+                  className='group p-4 bg-white rounded-xl border border-transparent hover:border-blue-100 transition-all cursor-pointer shadow-sm hover:shadow-md'
+                >
+                  <div className='flex gap-4'>
+                    <div className='mt-1 text-blue-500 group-hover:scale-110 transition-transform'>
+                      {insight.includes('⚠️')
+? <FaExclamationTriangle className='text-amber-500' /> 
+                       : insight.includes('🎯')
+? <FaBullseye className='text-purple-500' />
+                       : insight.includes('📈')
+? <FaArrowUp className='text-emerald-500' />
+                       : <FaLightbulb />}
                     </div>
-                  ))
-                )
-              : (
-                <div className='text-center py-6 bg-white rounded-lg'>
-                  <FaLightbulb className='w-8 h-8 text-gray-300 mx-auto mb-2' />
-                  <p className='text-sm text-gray-600'>
-                    Add transactions to get personalized insights.
-                  </p>
+                    <div className='flex-1'>
+                      <p className={`text-sm text-gray-700 leading-relaxed transition-all ${!isExpanded && 'line-clamp-2'}`}>
+                        {insight}
+                      </p>
+                      {insight.length > 90 && (
+                        <div className='mt-2 flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase tracking-tighter'>
+                          {isExpanded ? <><FaChevronUp /> Show Less</> : <><FaChevronDown /> Read Full Insight</>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                )}
+              )
+            })}
           </div>
 
-          {/* Tips Section */}
-          <div className='bg-white p-3 rounded-lg border border-primary-200'>
-            <p className='text-xs font-semibold text-primary-700 mb-2 flex items-center gap-1'>
-              <FaBullseye className='w-3 h-3' />
-              AI Tip of the Day
-            </p>
-            <p className='text-xs text-gray-700'>
-              Review your spending habits weekly and set realistic budget goals. Small changes in daily spending can lead to significant savings over time.
+          {/* AI Tip Footer */}
+          <div className='bg-blue-600 rounded-xl p-4 text-white shadow-blue-200 shadow-lg'>
+            <div className='flex items-center gap-2 mb-1'>
+              <FaBullseye className='w-3 h-3 text-blue-200' />
+              <span className='text-[10px] font-black uppercase tracking-widest text-blue-100'>Daily Tip</span>
+            </div>
+            <p className='text-xs font-medium leading-relaxed opacity-95'>
+              Small daily changes lead to significant wealth. Review your "Subscribed" services today—many users save ₹500+ monthly by canceling unused apps.
             </p>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

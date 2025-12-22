@@ -23,21 +23,17 @@ const GoogleAuthHandler = () => {
 
       if (token && userParam) {
         try {
-          // Parse user data
           const userData = JSON.parse(decodeURIComponent(userParam))
 
-          // Store in localStorage
           localStorage.setItem('authToken', token)
           localStorage.setItem('user', JSON.stringify(userData))
           localStorage.setItem('authType', 'google')
 
           toast.success('Google login successful!')
 
-          // Clean URL
           const cleanUrl = window.location.pathname
           window.history.replaceState({}, document.title, cleanUrl)
 
-          // Navigate based on user state
           setTimeout(() => {
             if (userData.onboardingComplete) {
               navigate('/dashboard', { replace: true })
@@ -51,7 +47,6 @@ const GoogleAuthHandler = () => {
           navigate('/login', { replace: true })
         }
       } else {
-        // No auth data found, redirect to login
         navigate('/login', { replace: true })
       }
     }
@@ -62,17 +57,32 @@ const GoogleAuthHandler = () => {
   }, [searchParams, navigate, loading])
 
   return (
-    <div className='min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 p-4'>
-      <div className='text-center max-w-md'>
-        <div className='w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse'>
-          <div className='w-12 h-12 bg-white rounded-full flex items-center justify-center'>
-            <div className='text-2xl'>✓</div>
+    /* Use 100dvh for better mobile browser support */
+    <div className='min-h-[100dvh] flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 px-6 py-8'>
+      <div className='text-center w-full max-w-sm md:max-w-md'>
+
+        {/* Animated Icon Container */}
+        <div className='w-16 h-16 md:w-20 md:h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse'>
+          <div className='w-10 h-10 md:w-12 md:h-12 bg-white rounded-full flex items-center justify-center'>
+            <div className='text-xl md:text-2xl font-bold text-blue-600'>✓</div>
           </div>
         </div>
-        <h2 className='text-2xl font-bold text-gray-900 mb-3'>Completing Google Sign In</h2>
-        <p className='text-gray-600 mb-8'>Redirecting you to your dashboard...</p>
-        <Loader size='lg' />
-        <p className='text-gray-500 text-sm mt-6 animate-pulse'>
+
+        {/* Text Content */}
+        <h2 className='text-xl md:text-2xl font-bold text-gray-900 mb-2 md:mb-3 px-2'>
+          Completing Google Sign In
+        </h2>
+        <p className='text-gray-600 text-sm md:text-base mb-8'>
+          Redirecting you to your dashboard...
+        </p>
+
+        {/* Loader Section */}
+        <div className='flex justify-center'>
+          <Loader size='lg' />
+        </div>
+
+        {/* Footer Hint */}
+        <p className='text-gray-400 text-xs md:text-sm mt-8 animate-pulse font-medium tracking-wide uppercase'>
           Please wait a moment...
         </p>
       </div>

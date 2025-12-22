@@ -56,6 +56,9 @@ ChartJS.register(
 
 const IncomePage = () => {
   const { user } = useAuth()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
+  const closeSidebar = () => setIsSidebarOpen(false)
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [incomes, setIncomes] = useState([])
@@ -674,11 +677,11 @@ const IncomePage = () => {
   }
 
   return (
-    <div className='min-h-screen bg-gray-50'>
-      <Sidebar />
-      <div className='md:pl-64 flex flex-col'>
-        <Header />
-        <main className='flex-1 p-6'>
+    <div className='flex h-screen bg-gray-50 overflow-hidden'>
+      <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+      <div className='flex-1 flex flex-col min-w-0 relative overflow-y-auto'>
+        <Header onMenuClick={toggleSidebar} />
+        <main className='flex-1 p-4 md:p-8'>
           <div className='max-w-7xl mx-auto'>
             {/* Header */}
             <div className='flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4'>
