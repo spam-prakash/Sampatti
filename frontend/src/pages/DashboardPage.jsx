@@ -280,8 +280,6 @@ const DashboardPage = () => {
   const monthlyStats = getMonthlyStats()
   const paginatedTransactions = getPaginatedTransactions()
 
-  if (loading) return <div className='min-h-screen flex items-center justify-center bg-white'><Loader size='lg' /></div>
-
   return (
     <div className='flex h-screen bg-gray-50 overflow-hidden'>
       {/* Sidebar - Positioned correctly within flex */}
@@ -293,6 +291,7 @@ const DashboardPage = () => {
         <Header onMenuClick={toggleSidebar} />
 
         <main className='flex-1 p-4 md:p-8'>
+          {loading && <div className='min-h-screen flex items-center justify-center bg-white'><Loader size='lg' /></div>}
           <div className='max-w-7xl mx-auto space-y-8'>
 
             {/* Main Balance Card */}

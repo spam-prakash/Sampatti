@@ -668,20 +668,13 @@ const IncomePage = () => {
 
   const paginatedIncomes = getPaginatedIncomes()
 
-  if (loading) {
-    return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <Loader size='lg' />
-      </div>
-    )
-  }
-
   return (
     <div className='flex h-screen bg-gray-50 overflow-hidden'>
       <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
       <div className='flex-1 flex flex-col min-w-0 relative overflow-y-auto'>
         <Header onMenuClick={toggleSidebar} />
         <main className='flex-1 p-4 md:p-8'>
+          {loading && <div className='min-h-screen flex items-center justify-center bg-white'><Loader size='lg' /></div>}
           <div className='max-w-7xl mx-auto'>
             {/* Header */}
             <div className='flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4'>

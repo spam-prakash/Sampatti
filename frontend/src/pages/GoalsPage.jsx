@@ -1065,20 +1065,13 @@ const GoalsPage = () => {
     return { text: 'On Track', color: 'text-blue-600', bgColor: 'bg-blue-50' }
   }
 
-  if (loading) {
-    return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <Loader size='lg' />
-      </div>
-    )
-  }
-
   return (
     <div className='flex h-screen bg-gray-50 overflow-hidden'>
       <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
       <div className='flex-1 flex flex-col min-w-0 relative overflow-y-auto'>
         <Header onMenuClick={toggleSidebar} />
         <main className='flex-1 p-4 md:p-8'>
+          {loading && <div className='min-h-screen flex items-center justify-center bg-white'><Loader size='lg' /></div>}
           <div className='max-w-7xl mx-auto space-y-8'>
 
             {/* Header with AI Button - Responsive layout */}
@@ -1190,7 +1183,7 @@ const GoalsPage = () => {
 
                       return (
                         <div key={goal._id} className='bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group overflow-hidden'>
-                        <div className='p-6'>
+                          <div className='p-6'>
                           <div className='flex items-start justify-between mb-4'>
                             <div className='min-w-0'>
                               <h4 className='font-bold text-gray-800 truncate'>{goal.title}</h4>
@@ -1211,9 +1204,9 @@ const GoalsPage = () => {
                               </div>
                               <div className='w-full bg-gray-100 rounded-full h-2'>
                                 <div
-                    className={`h-2 rounded-full transition-all duration-500 ${progress === 100 ? 'bg-green-500' : 'bg-blue-600'}`}
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  />
+                                  className={`h-2 rounded-full transition-all duration-500 ${progress === 100 ? 'bg-green-500' : 'bg-blue-600'}`}
+                                  style={{ width: `${Math.min(progress, 100)}%` }}
+                                />
                               </div>
                             </div>
 
@@ -1236,11 +1229,11 @@ const GoalsPage = () => {
                             <div className='flex gap-2 pt-2'>
                               {!goal.isCompleted && (
                                 <button
-                    onClick={() => handleAddSavingsModal(goal)}
-                    className='flex-1 py-2 text-xs font-bold bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2'
-                  >
-                    <FaWallet size={12} /> Add Savings
-                  </button>
+                                  onClick={() => handleAddSavingsModal(goal)}
+                                  className='flex-1 py-2 text-xs font-bold bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2'
+                                >
+                                  <FaWallet size={12} /> Add Savings
+                                </button>
                               )}
                               <div className='flex gap-2'>
                                 <button onClick={() => handleEditGoal(goal)} className='p-2 text-gray-400 hover:text-blue-600 transition-colors'><FaEdit size={14} /></button>
@@ -1249,7 +1242,7 @@ const GoalsPage = () => {
                             </div>
                           </div>
                         </div>
-                      </div>
+                        </div>
                       )
                     })}
                   </div>
