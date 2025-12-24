@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken')
 
 if (!process.env.JWTSIGN) {
-  console.error('❌ CRITICAL: JWTSIGN environment variable is not set!')
+  console.error('CRITICAL: JWTSIGN environment variable is not set!')
   // You can choose to throw an error or handle it differently
   // throw new Error('JWTSIGN environment variable is required')
 }
