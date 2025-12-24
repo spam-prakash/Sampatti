@@ -43,7 +43,7 @@ app.use('/api/goal', require('./routes/goal'))
 app.use('/api/ai', require('./routes/ai'))
 
 app.get('/', (req, res) => {
-  res.send('Backend running on Vercel 🚀')
+  res.send('Backend running on Vercel')
 })
 
 // start server
