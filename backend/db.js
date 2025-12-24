@@ -22,7 +22,7 @@ async function connectToMongo () {
         return mongooseInstance
       })
       .catch((err) => {
-        console.error('MongoDB connection failed ❌', err)
+        console.error('MongoDB connection failed', err)
         throw err
       })
   }
