@@ -10,7 +10,7 @@ const MONGOURI = process.env.MONGOURI
 
 async function connectToMongo () {
   if (cached.conn) {
-    // console.log('Using cached MongoDB connection ✅')
+    // console.log('Using cached MongoDB connection')
     return cached.conn
   }
 
@@ -18,7 +18,7 @@ async function connectToMongo () {
     cached.promise = mongoose
       .connect(MONGOURI)
       .then((mongooseInstance) => {
-        console.log('MongoDB connected ✅')
+        console.log('MongoDB connected')
         return mongooseInstance
       })
       .catch((err) => {
